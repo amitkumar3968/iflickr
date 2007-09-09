@@ -36,8 +36,8 @@
 @class CameraController;
 @class CameraView;
 
-#define SHARED_SECRET "24ee98e4512d8d64"
-#define API_KEY  "842d6482843a717b392add0864951ed6"
+#define SHARED_SECRET "INSERT_YOUR_SHARED_SECRET"
+#define API_KEY  "INSERT_YOUR_API_KEY"
 
 // Utility Functions.
 
