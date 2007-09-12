@@ -266,7 +266,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 -(void)takeContinuousPicPicture:(id)sender
 {
-	NSLog(@"Inside isCCM\n");
 	if([self shouldShoot])
 	{
 		printf("Took a ccm picture\n");
@@ -594,7 +593,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
     UITextLabel *versionText = [[UITextLabel alloc] initWithFrame:
 		CGRectMake(15.0f, 300.0f, 100.0f, 20.0f)];
-    [ versionText setText:@"0.0.2"];
+    [ versionText setText:@"0.0.3"];
     [ versionText setBackgroundColor:
 		CGColorCreate(colorSpace, transparentComponents)];
     [ pref addSubview:versionText ];
