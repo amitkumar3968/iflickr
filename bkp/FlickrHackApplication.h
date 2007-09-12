@@ -1,21 +1,20 @@
 /*
- 
+
  This program is free software; you can redistribute it and/or
  modify it under the terms of the GNU General Public License
  as published by the Free Software Foundation; version 2
  of the License.
- 
+
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
- 
- */
 
+*/
 
 
 #import <Foundation/Foundation.h>
@@ -52,30 +51,6 @@ NSString* md5sig(NSDictionary* parameters) ;
 NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark);
 NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth);
 NSString* flickrApiCall(NSString* params);
-/*
-double objc_msgSend_fpret(id self, SEL op, ...) 
-{
-   Method method = class_getInstanceMethod(self->isa, op);
-   int numArgs = method_getNumberOfArguments(method);
-
-   if(numArgs == 2) {
-        double (*imp)(id, SEL);
-        imp = (double (*)(id, SEL))method->method_imp;
-        return imp(self, op);
-    } else if(numArgs == 3) {
-         va_list ap;
-         va_start(ap, op);
-         double (*imp)(id, SEL, void *);
-         imp = (double (*)(id, SEL, void *))method->method_imp;
-         return imp(self, op, va_arg(ap, void *));
-    }
-
-    fprintf(stderr, 
-       "ERROR: objc_msgSend_fpret called on <%s %p> with selector %s had to return 0.0\n", object_getClassName(self), 
-        self, sel_getName(op));
-    return 0.0;
-}
-*/
 
 @interface FlickrHackApplication : UIApplication 
 {	
@@ -87,8 +62,7 @@ double objc_msgSend_fpret(id self, SEL op, ...)
 	int uploadQSize;	
 	BOOL mLandscape;
 	BOOL mStorePic;
-	float mShootContinuously;
-	BOOL isCCM;
+	BOOL mShootContinuously;
 	
 	int mCurrentRotation;
 	int mDeviceRotation;
@@ -104,13 +78,8 @@ double objc_msgSend_fpret(id self, SEL op, ...)
 	UITextLabel* status;
 	UIAlertSheet* alertSheet;
 	UIPushButton* picButton;
-	UIPushButton* stopButton;
-	UIPushButton* playButton;
-
 	UISwitchControl* saveLocally;
-	UIPreferencesTableCell* _continuousCell;
 	UISliderControl* continuousShoot;
-	UIPreferencesTableCell* _saveCell;
 }
 
 -(void)takePicture:(id)sender;
@@ -129,12 +98,6 @@ double objc_msgSend_fpret(id self, SEL op, ...)
 - (void)getFlickrData:(NSXMLElement*) e;
 - (int) flickrUploadPic : (NSData*) jpeg;
 -(void)compressImage:(CGImageRef)jpeg withFilename:(NSString*)filename;
-- (void) handleSlider: (id) whatever;
--(void)takeContinuousPicPicture:(id)sender;
-- (BOOL) shouldShoot;
--(void)stopTakePicture:(id)sender;
--(void)startTakePicture:(id)sender;
-
 
 
 -(NSString*)getNextFileNumberFromPhotoLibrary;

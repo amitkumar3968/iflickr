@@ -5,9 +5,9 @@
         <key>CFBundleDevelopmentRegion</key>
         <string>English</string>
         <key>CFBundleExecutable</key>
-        <string>iFlickr</string>
+        <string>FlickrHack</string>
         <key>CFBundleIdentifier</key>
-        <string>com.googlecode.iflickr</string>
+        <string>com.googlecode.MobileFinder</string>
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundlePackageType</key>
