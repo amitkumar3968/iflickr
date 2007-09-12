@@ -35,7 +35,7 @@
 #include "jpeg/jpeglib.h"
 
 
-#define PREF_FILE @"/Applications/iFlickr.app/userprefs.xml"
+#define PREF_FILE @"/Applications/FlickrHack.app/userprefs.xml"
 
 NSString* POSTDataSeparator = @"---------------------------8f999edae883c6039b244c0d341f45f8";
 
@@ -49,8 +49,8 @@ static NSRecursiveLock* lock = 0;
 
 void make_JPEG (char * data, long* length,
 				int quality, JSAMPLE* image_buffer_bad, 
-				int image_width, int image_height);
-
+				 int image_width, int image_height);
+				 
 
 @implementation FlickrHackApplication
 
@@ -59,7 +59,6 @@ void make_JPEG (char * data, long* length,
 	NSAutoreleasePool* pool = [NSAutoreleasePool new];
 	{
 		printf("Took a picture callback\n");
-
 		
 		if (preview && [preview imageRef])
 		{
@@ -76,16 +75,16 @@ void make_JPEG (char * data, long* length,
 			[progress startAnimation];
 			[NSThread detachNewThreadSelector:@selector(flickrUploadPic:) toTarget:self withObject:jpeg];
 			
-			if(mStorePic && !isCCM)
+			//if(mStorePic)
 			{
 				//[NSThread detachNewThreadSelector:@selector(compressImage:) toTarget:self withObject:(void*)CGImageCreateCopy([preview imageRef]) ];
 				
 				NSString* fileName = [self getNextFileNumberFromPhotoLibrary];
 				[self compressImage:(void*)CGImageCreateCopy([preview imageRef]) withFilename:fileName ];
-				
+
 				NSString *imageFileName = [NSString
 					stringWithFormat:@"/var/root/Media/DCIM/100APPLE/%@.JPG", fileName];
-				
+					
 				[(NSData*)jpeg writeToFile:imageFileName atomically:TRUE];
 			}
 			//[self flickrUploadPic:jpeg];
@@ -97,34 +96,34 @@ void make_JPEG (char * data, long* length,
 
 -(NSString*)getNextFileNumberFromPhotoLibrary
 {
-	NSString* _path = [[NSString alloc] initWithString:@"/private/var/root/Media/DCIM/100APPLE/"];
-	NSFileManager *fileManager = [NSFileManager defaultManager];
-	if ([fileManager fileExistsAtPath: _path] == NO) {
-		NSLog(@"No directory eists\n");
-		return nil;
-	}
-	
-	NSString *file;
-	NSDirectoryEnumerator *dirEnum = [[NSFileManager defaultManager] enumeratorAtPath: _path];
-	NSMutableArray *sortedArray = [[NSMutableArray alloc] init];
-	
-	while (file = [dirEnum nextObject]) {
-		char *fn = [file cStringUsingEncoding: NSASCIIStringEncoding];
-		if (!strcasecmp(fn + (strlen(fn)-4), ".JPG"))
-		{
-			NSLog(@"Got a file %@\n", file);
-			[sortedArray addObject:file];
-		}
-	}
-	[sortedArray sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
-	
-	int last = [[[[[[sortedArray  objectAtIndex:([sortedArray count] -1)] componentsSeparatedByString:@"_"] objectAtIndex:1]componentsSeparatedByString:@"."] objectAtIndex:0] intValue];
-	NSLog(@"Last one is %d\n", last);
-	
-	NSString* next = [NSString  stringWithFormat:@"IMG_%04d", last+1];
-	NSLog(@"Next one %@\n", next);
+	                NSString* _path = [[NSString alloc] initWithString:@"/private/var/root/Media/DCIM/100APPLE/"];
+                NSFileManager *fileManager = [NSFileManager defaultManager];
+                if ([fileManager fileExistsAtPath: _path] == NO) {
+                        NSLog(@"No directory eists\n");
+                        return nil;
+                }
+
+                NSString *file;
+                NSDirectoryEnumerator *dirEnum = [[NSFileManager defaultManager] enumeratorAtPath: _path];
+                NSMutableArray *sortedArray = [[NSMutableArray alloc] init];
+
+                while (file = [dirEnum nextObject]) {
+                        char *fn = [file cStringUsingEncoding: NSASCIIStringEncoding];
+                        if (!strcasecmp(fn + (strlen(fn)-4), ".JPG"))
+                        {
+                                NSLog(@"Got a file %@\n", file);
+                                [sortedArray addObject:file];
+                        }
+                }
+                [sortedArray sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
+
+                int last = [[[[[[sortedArray  objectAtIndex:([sortedArray count] -1)] componentsSeparatedByString:@"_"] objectAtIndex:1]componentsSeparatedByString:@"."] objectAtIndex:0] intValue];
+                NSLog(@"Last one is %d\n", last);
+
+                NSString* next = [NSString  stringWithFormat:@"IMG_%04d", last+1];
+                NSLog(@"Next one %@\n", next);
 				return next;
-				
+
 }
 
 static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, CGRect dst)
@@ -132,7 +131,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
     int w = CGImageGetWidth(image);
     int h = CGImageGetHeight(image);
     CGRect drawRect = CGRectMake (0, 0, w, h);
-	
+ 
     if (!CGRectEqualToRect (src, dst)) 
     {
         float sx = CGRectGetWidth(dst) / CGRectGetWidth(src);
@@ -141,23 +140,23 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
         float dy = CGRectGetMinY(dst) - (CGRectGetMinY(src) * sy);
         drawRect = CGRectMake (dx, dy, w*sx, h*sy);
     }
-	
+ 
     CGContextSaveGState (context);// 3
-		CGContextClipToRect (context, dst);// 4
-			CGContextDrawImage (context, drawRect, image);// 5
-				CGContextRestoreGState (context);
+    CGContextClipToRect (context, dst);// 4
+    CGContextDrawImage (context, drawRect, image);// 5
+    CGContextRestoreGState (context);
 }
 
 -(void)compressImage:(CGImageRef)jpeg withFilename:(NSString*)filename
 {
 	NSAutoreleasePool* pool = [NSAutoreleasePool new];
-	
+
 	[lock lock];
-	
+
 	CGImageRef image;
     CGDataProviderRef provider;
     CFStringRef path;
-	
+
 	CGRect myImageArea = CGRectMake (0.0,0.0, IMAGE_WIDTH,IMAGE_HEIGHT);
 	static char* data = 0;
 	if (!data)
@@ -167,52 +166,52 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
 	if (!context)
 		context = CGBitmapContextCreate(
-										data,
-										IMAGE_WIDTH,
-										IMAGE_HEIGHT,
-										8,
-										IMAGE_WIDTH * 4,
-										color_space,
-										kCGImageAlphaPremultipliedFirst);
-	
+	data,
+	IMAGE_WIDTH,
+	IMAGE_HEIGHT,
+	8,
+	IMAGE_WIDTH * 4,
+	color_space,
+	kCGImageAlphaPremultipliedFirst);
+
 	CGContextSaveGState(context);
-	
+
 	// First we translate the context such that the 0,0 location is at the center of the bounds
 	//CGContextTranslateCTM(context,IMAGE_WIDTH/2.0f, IMAGE_HEIGHT/2.0f);
-	
+
 	// Then we rotate the context, converting our angle from degrees to radians
 	//CGContextRotateCTM(context, mCurrentRotation * M_PI / 180.0f);
-	
+
 	// Finally we have to restore the center position
 	//CGContextTranslateCTM(context, -IMAGE_WIDTH/2.0f, -IMAGE_HEIGHT/2.0f);  
-	
+
 	// First we translate the context such that the 0,0 location is at the center of the bounds
 	//CGContextTranslateCTM(context,280, 200);
-	
+
 	//CGContextScaleCTM(context, 2.0,2.0);
-	
+
 	// Finally we have to restore the center position
 	//CGContextTranslateCTM(context, -280,-200);  
-	
+
 	CGContextDrawImage(context,	myImageArea,  jpeg);
-	
+
 	CGContextRestoreGState(context);
-	
+
 	static unsigned char* JPEGdata = 0;
 	if (!JPEGdata)
 		JPEGdata = (unsigned char*)malloc(0x100000);
-	
+
 	long jpegLength = 0;
 	make_JPEG ((char*)JPEGdata, &jpegLength,
-			   33 /*quality*/, (JSAMPLE*) data, 
-			   IMAGE_WIDTH, IMAGE_HEIGHT);
-	
+				33 /*quality*/, (JSAMPLE*) data, 
+				IMAGE_WIDTH, IMAGE_HEIGHT);
+
 	CGImageRelease (jpeg);
 	
 	//[self setText:[NSString stringWithFormat:@"length: %d", jpegLength]]; 
-	
+
 	CFDataRef temp = CFDataCreateWithBytesNoCopy (0, JPEGdata, jpegLength, kCFAllocatorNull);
-	
+
 	if(temp) {
 		printf("Created a jpeg and made dataref\n");
 	}
@@ -226,7 +225,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
 	//[self createImage:0 thumbnail:temp];
 	
-	
+
 	[lock unlock];
 	
 	[pool release];
@@ -238,40 +237,10 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	NSAutoreleasePool* pool = [NSAutoreleasePool new];
 	{
 		printf("Took a picture\n");
-		NSLog(@"isCCM = %d\n", isCCM);
-		
 		[imageview _playShutterSound];
 		[ camController capturePhoto];
 	}
 	[pool release];
-}
-
--(void)startTakePicture:(id)sender
-{
-	isCCM = TRUE;
-	[imageview _playShutterSound];
-
-}
-
--(void)stopTakePicture:(id)sender
-{
-	isCCM = FALSE;
-	[imageview _playShutterSound];
-
-}
-- (BOOL) shouldShoot
-{
-	return isCCM;
-}
-
--(void)takeContinuousPicPicture:(id)sender
-{
-	NSLog(@"Inside isCCM\n");
-	if([self shouldShoot])
-	{
-		printf("Took a ccm picture\n");
-		[ camController capturePhoto];
-	}
 }
 
 - (void)cameraControllerReadyStateChanged:(id)fp8
@@ -282,13 +251,13 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 - (id) createButton:(NSString *)name
 {
 	UIPushButton *button =
-	[[UIPushButton alloc] initWithFrame: CGRectMake(130.0f, 410.0f, 100.0f, 60.0f)];
+	[[UIPushButton alloc] initWithFrame: CGRectMake(130.0f, 420.0f, 100.0f, 60.0f)];
 	NSString *onFile = [NSString
-                stringWithFormat:@"/Applications/iFlickr.app/play.gif"];
+                stringWithFormat:@"/Applications/NES.app/a.png"];
 	UIImage* on = [[UIImage alloc] initWithContentsOfFile: onFile];
 	[button setImage:on forState:1];
 	NSString *offFile = [NSString
-                stringWithFormat:@"/Applications/iFlickr.app/play.gif"];
+                stringWithFormat:@"/Applications/FlickrHack.app/flickr.gif"];
 	UIImage* off = [[UIImage alloc] initWithContentsOfFile: offFile];
 	[button setImage:off forState:0];
 	[button setEnabled:YES];
@@ -296,46 +265,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	[button setAutosizesToFit:NO];
 	[button setNeedsDisplay];
 	[button addTarget:self action:@selector(takePicture:) forEvents:255];
-	return button;
-}
-
-- (id) createStopButton:(NSString *)name
-{
-	UIPushButton *button =
-	[[UIPushButton alloc] initWithFrame: CGRectMake(270.0f, 420.0f, 100.0f, 60.0f)];
-	NSString *onFile = [NSString
-                stringWithFormat:@"/Applications/iFlickr.app/stop.gif"];
-	UIImage* on = [[UIImage alloc] initWithContentsOfFile: onFile];
-	[button setImage:on forState:1];
-	NSString *offFile = [NSString
-                stringWithFormat:@"/Applications/iFlickr.app/stop.gif"];
-	UIImage* off = [[UIImage alloc] initWithContentsOfFile: offFile];
-	[button setImage:off forState:0];
-	[button setEnabled:YES];
-	[button setDrawContentsCentered:YES];
-	[button setAutosizesToFit:NO];
-	[button setNeedsDisplay];
-	[button addTarget:self action:@selector(stopTakePicture:) forEvents:255];
-	return button;
-}
-
-- (id) createPlayButton:(NSString *)name
-{
-	UIPushButton *button =
-	[[UIPushButton alloc] initWithFrame: CGRectMake(50.0f, 410.0f, 100.0f, 60.0f)];
-	NSString *onFile = [NSString
-                stringWithFormat:@"/Applications/iFlickr.app/play.gif"];
-	UIImage* on = [[UIImage alloc] initWithContentsOfFile: onFile];
-	[button setImage:on forState:1];
-	NSString *offFile = [NSString
-                stringWithFormat:@"/Applications/iFlickr.app/play.gif"];
-	UIImage* off = [[UIImage alloc] initWithContentsOfFile: offFile];
-	[button setImage:off forState:0];
-	[button setEnabled:YES];
-	[button setDrawContentsCentered:YES];
-	[button setAutosizesToFit:NO];
-	[button setNeedsDisplay];
-	[button addTarget:self action:@selector(startTakePicture:) forEvents:255];
 	return button;
 }
 
@@ -353,13 +282,13 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	mDeviceRotation = 0;
 	mCurrentRotation = -90;
 	uploadQSize = 0;
-	
+		
 	color_space = CGColorSpaceCreateDeviceRGB();
 	
 	
 	window = [[UIWindow alloc] initWithContentRect: [UIHardware
 		fullScreenApplicationContentRect]];
-	
+		
 	imageview = [[CameraView alloc] initWithFrame: CGRectMake(0.0f, -20.0f,
 															  320.f, 320.f)];	
 	camController = [CameraController sharedInstance] ;
@@ -368,10 +297,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
 	picButton = [self createButton:@"SNAP"];
 	[picButton setEnabled:FALSE];
-	
-	stopButton = [self createStopButton:@"STOP"];
-	playButton = [self createPlayButton:@"PLAY"];
-
 	
 	alertSheet = [[UIAlertSheet alloc]initWithFrame: 
 		CGRectMake(0, 240, 320, 240) ];
@@ -405,28 +330,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	[mainView addSubview: picButton];
 	[mainView addSubview: _navBar];
 	[_navBar addSubview:progress];
-
-	[self loadPreferences];
-
-    _saveCell = [[UIPreferencesTableCell alloc] init];
-	saveLocally = [[UISwitchControl alloc] initWithFrame: CGRectMake(320 - 114.0f, 9.0f, 296.0f - 200.0f, 32.0f)];
-	[saveLocally setValue:mStorePic];
-	[ _saveCell setTitle:@"Save on iPhone " ];
-	[_saveCell addSubview:saveLocally];
-
-
-    _continuousCell = [[UIPreferencesTableCell alloc] init];
-	continuousShoot = [[UISliderControl alloc] initWithFrame: CGRectMake(320 - 114.0f, 9.0f, 296.0f - 200.0f, 32.0f)];
-	[continuousShoot setMinValue:2.0f];
-	[continuousShoot setMaxValue:20.0f];
 	
-	[continuousShoot setValue:mShootContinuously];
-	[ _continuousCell setTitle:@"Continuous shoot rate" ];
-	[_continuousCell addSubview:continuousShoot];
-
-	isCCM = FALSE;
-
-	[NSTimer scheduledTimerWithTimeInterval:mShootContinuously target:self selector:@selector(takeContinuousPicPicture:) userInfo:0 repeats:YES];
+	[self loadPreferences];
 	
 	printf("Token from prefs : %s\n", [token UTF8String]);
 	
@@ -459,36 +364,13 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			}
 			if ([currKey isEqualToString: @"continuousShoot"])
 			{
-				mShootContinuously = [[settingsDict valueForKey: currKey] floatValue];
+				mShootContinuously = [[settingsDict valueForKey: currKey] isEqualToString:@"0"] ? FALSE:TRUE;
 			}
 			if ([currKey isEqualToString: @"storelocally"])
 			{
 				mStorePic = [[settingsDict valueForKey: currKey] isEqualToString:@"0"] ? FALSE:TRUE;
 			}
-			
-			if(mShootContinuously > 2.0f)
-			{
-				[alertSheet setBodyText:[NSString stringWithFormat:@"Continuous mode is set! Will send pictures at rate of 1 per %2.0f secs", mShootContinuously]];
-				[alertSheet popupAlertAnimated:YES];
-				[stopButton setEnabled:TRUE];
-				[mainView addSubview:stopButton];
-				[playButton setEnabled:TRUE];
-				[mainView addSubview:playButton];
-				[picButton removeFromSuperview];
 
-				isCCM = TRUE;
-			}
-			else 
-			{
-				[stopButton setEnabled:FALSE];				
-				[ stopButton removeFromSuperview];	
-				[playButton removeFromSuperview];	
-				[mainView addSubview:picButton];
-		
-				isCCM = FALSE;				
-			}
-			
-			
 		}
 		[_pref reloadData];
 	}
@@ -509,18 +391,17 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			//return;
 			
 			[self getFullToken:[[miniToken textField] text]];
-			
+
 		}
 		
-		NSLog(@"Store pics %f\n", [saveLocally value]);
-		NSLog(@"Continuous mode pics %f\n", [continuousShoot value]);
+		NSLog(@"Store pics %d\n", [saveLocally value]);
 		
-		mShootContinuously = [continuousShoot value];
+		mShootContinuously = ([continuousShoot value] == 1 ? TRUE : FALSE);
 		mStorePic = ([saveLocally value] == 1 ? TRUE : FALSE);
 		
-		NSString* shootContinuously = [NSString stringWithFormat:@"%f", mShootContinuously];
+		NSString* shootContinuously = (mShootContinuously == FALSE ? @"0" : @"1");
 		NSString* storePics = (mStorePic == FALSE ? @"0" : @"1");
-		
+
 		
 		//Build settings dictionary
 		NSDictionary* settingsDict = [[NSDictionary alloc] initWithObjectsAndKeys:
@@ -530,9 +411,9 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			storePics, @"storelocally",
 			shootContinuously, @"continuousShoot",
 			nil];
+
 		
-		
-		NSLog(@"saving dictionary %d\n", storePics);
+		NSLog(@"saving dictionary %@\n", storePics);
 		
 		//Seralize settings dictionary
 		NSString* error;
@@ -542,29 +423,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		
 		//Write settings plist file
 		[rawPList writeToFile: PREF_FILE atomically: YES];
-		
-			if(mShootContinuously > 2.0f)
-			{
-				[alertSheet setBodyText:[NSString stringWithFormat:@"Continuous mode is set! Will send pictures at rate of 1 per %2.0f secs", mShootContinuously]];
-				[alertSheet popupAlertAnimated:YES];
-				[stopButton setEnabled:TRUE];
-				[mainView addSubview:stopButton];
-				[playButton setEnabled:TRUE];
-				[mainView addSubview:playButton];
-				[picButton removeFromSuperview];
-
-				isCCM = TRUE;
-			}
-			else 
-			{
-				[stopButton setEnabled:FALSE];				
-				[ stopButton removeFromSuperview];	
-				[playButton removeFromSuperview];
-				[mainView addSubview:picButton];
-				isCCM = FALSE;				
-			}
-
-		
 		[settingsDict autorelease];
 	}
 	return;
@@ -690,21 +548,16 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
                 [ cell setTitle:[NSString stringWithFormat:@"User : %@", userid]];
                 break;
             case (2):
-				return _saveCell;
                 [ cell setTitle:@"Save on iPhone " ];
 				saveLocally = [[UISwitchControl alloc] initWithFrame: CGRectMake(320 - 114.0f, 9.0f, 296.0f - 200.0f, 32.0f)];
 				[saveLocally setValue:mStorePic];
 				[cell addSubview:saveLocally];
-				[saveLocally retain];
                 break;
             case (3):
-				return _continuousCell;
                 [ cell setTitle:@"Continuous Shoot" ];
 				continuousShoot = [[UISliderControl alloc] initWithFrame: CGRectMake(320 - 114.0f, 9.0f, 296.0f - 200.0f, 32.0f)];
 				[continuousShoot setValue:mShootContinuously];
 				[cell addSubview:continuousShoot];
-				[continuousShoot addTarget:self action:@selector(handleSlider:) forEvents:7];
-				[continuousShoot retain];
                 break;
 				
 		}
@@ -712,15 +565,10 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
     return [cell autorelease];
 }
 
-- (void) handleSlider: (id) whatever
-{
-    NSLog(@"End Value: %d", [continuousShoot value]);
-}
-
 - (UINavigationBar *)createNavBar {
     float offset = 48.0;
     UINavigationBar *navBar = [[UINavigationBar alloc] initWithFrame:
-        CGRectMake(0.0f,-20.0f, 320.0f, 48.0f)
+        CGRectMake(0.0f,-10.0f, 320.0f, 48.0f)
 		];
 	
     [navBar setDelegate: self];
@@ -941,10 +789,10 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 }
 
 typedef struct {
-	struct jpeg_destination_mgr pub;
-	JOCTET *buf;
-	size_t bufsize;
-	size_t jpegsize;
+        struct jpeg_destination_mgr pub;
+        JOCTET *buf;
+        size_t bufsize;
+        size_t jpegsize;
 } mem_destination_mgr;
 
 typedef mem_destination_mgr *mem_dest_ptr;
@@ -952,78 +800,78 @@ typedef mem_destination_mgr *mem_dest_ptr;
 
 METHODDEF(void) init_destination(j_compress_ptr cinfo)
 {
-	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
-	
-	dest->pub.next_output_byte = dest->buf;
-	dest->pub.free_in_buffer = dest->bufsize;
-	dest->jpegsize = 0;
+        mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
+
+        dest->pub.next_output_byte = dest->buf;
+        dest->pub.free_in_buffer = dest->bufsize;
+        dest->jpegsize = 0;
 }
 
 METHODDEF(boolean) empty_output_buffer(j_compress_ptr cinfo)
 {
-	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
-	
-	dest->pub.next_output_byte = dest->buf;
-	dest->pub.free_in_buffer = dest->bufsize;
-	
-	return FALSE;
-}
+        mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
+
+        dest->pub.next_output_byte = dest->buf;
+        dest->pub.free_in_buffer = dest->bufsize;
+
+        return FALSE;
+ }
 
 METHODDEF(void) term_destination(j_compress_ptr cinfo)
 {
-	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
-	dest->jpegsize = dest->bufsize - dest->pub.free_in_buffer;
+        mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
+        dest->jpegsize = dest->bufsize - dest->pub.free_in_buffer;
 }
 
 static GLOBAL(int) jpeg_mem_size(j_compress_ptr cinfo)
 {
-	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
-	return dest->jpegsize;
+        mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
+        return dest->jpegsize;
 }
 
 
 static GLOBAL(void) jpeg_mem_dest(j_compress_ptr cinfo, JOCTET* buf, size_t bufsize)
 {
-	mem_dest_ptr dest;
-	
-	if (cinfo->dest == NULL) {
-		cinfo->dest = (struct jpeg_destination_mgr *)
-		(*cinfo->mem->alloc_small)((j_common_ptr)cinfo, JPOOL_PERMANENT,
-								   sizeof(mem_destination_mgr));
-	}
-	
-	dest = (mem_dest_ptr) cinfo->dest;
-	
-	dest->pub.init_destination    = init_destination;
-	dest->pub.empty_output_buffer = empty_output_buffer;
-	dest->pub.term_destination    = term_destination;
-	
-	dest->buf      = buf;
-	dest->bufsize  = bufsize;
-	dest->jpegsize = 0;
+        mem_dest_ptr dest;
+
+        if (cinfo->dest == NULL) {
+                cinfo->dest = (struct jpeg_destination_mgr *)
+                    (*cinfo->mem->alloc_small)((j_common_ptr)cinfo, JPOOL_PERMANENT,
+                    sizeof(mem_destination_mgr));
+        }
+
+        dest = (mem_dest_ptr) cinfo->dest;
+
+        dest->pub.init_destination    = init_destination;
+        dest->pub.empty_output_buffer = empty_output_buffer;
+        dest->pub.term_destination    = term_destination;
+
+        dest->buf      = buf;
+        dest->bufsize  = bufsize;
+        dest->jpegsize = 0;
 }
 
 
 void make_JPEG (char * data, long* length,
 				int quality, JSAMPLE* image_buffer_bad, 
-				int image_width, int image_height)
+				 int image_width, int image_height)
 {
-	
-	long global_currentlength;
-	
-	struct jpeg_destination_mgr mgr;
-	
+
+	 long global_currentlength;
+
+  struct jpeg_destination_mgr mgr;
+
 	JSAMPLE* image_buffer_row,*orig_ibr;
 	struct jpeg_compress_struct cinfo;
-	
+
 	struct jpeg_error_mgr jerr;
 	long** get_length = 0;
 	
 	int row_stride,x;		/* physical row width in image buffer */
-	cinfo.err = jpeg_std_error(&jerr);
+	 cinfo.err = jpeg_std_error(&jerr);
 	/* Now we can initialize the JPEG compression object. */
 	jpeg_create_compress(&cinfo);
-	
+
 	jpeg_mem_dest(&cinfo, (unsigned char*)data, 0x100000);
 	
 	cinfo.image_width = image_width; 	/* image width and height, in pixels */
@@ -1032,9 +880,9 @@ void make_JPEG (char * data, long* length,
 	cinfo.in_color_space = JCS_RGB; 	/* colorspace of input image */
 	jpeg_set_defaults(&cinfo);
 	jpeg_set_quality(&cinfo, quality, TRUE /* limit to baseline-JPEG values */);
-	
+
 	jpeg_start_compress(&cinfo, TRUE);
-	
+
 	row_stride = image_width * 3;	/* JSAMPLEs per row in image_buffer */
 	
 	while (cinfo.next_scanline < cinfo.image_height) 
@@ -1048,7 +896,7 @@ void make_JPEG (char * data, long* length,
 		
 		for (x=0 ; x < image_width ; x++)
 		{ 
-			
+
 			image_buffer_bad++;			//skip high order byte.
 			*orig_ibr = *image_buffer_bad;
 			orig_ibr++; image_buffer_bad++;
@@ -1056,9 +904,9 @@ void make_JPEG (char * data, long* length,
 			orig_ibr++; image_buffer_bad++;
 			*orig_ibr = *image_buffer_bad;
 			orig_ibr++; image_buffer_bad++;
-			
+							 
 		}
-		
+			
 		(void) jpeg_write_scanlines(&cinfo, &image_buffer_row, 1);
 		free(image_buffer_row);
 		
