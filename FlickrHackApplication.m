@@ -35,7 +35,7 @@
 #include "jpeg/jpeglib.h"
 
 
-#define PREF_FILE @"/Applications/iFlickr.app/userprefs.xml"
+#define PREF_FILE @"/var/root/Library/Preferences/com.googlecode.iflickr.plist"
 
 NSString* POSTDataSeparator = @"---------------------------8f999edae883c6039b244c0d341f45f8";
 
