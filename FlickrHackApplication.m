@@ -275,6 +275,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 -(void)takePicture:(id)sender
 {
+	
 	NSAutoreleasePool* pool = [NSAutoreleasePool new];
 	{
 		printf("Took a picture\n");
@@ -465,6 +466,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
 	tagCell = [[UIPreferencesTextTableCell alloc]  init];
 	[ tagCell setTitle:@"Tags" ];
+	[[tagCell textField] setText:tags];
 
 	miniToken = [[UIPreferencesTextTableCell alloc]  initWithFrame:CGRectMake(170.0f, 100.0f, 120.0f, 20.0f)];
 	[ miniToken setTitle:@"Minitoken" ];
@@ -752,7 +754,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				{
 					[[tagCell textField] setText:tags];
 				}
-				return tagCell;
+				return [tagCell autorelease];
 				break;
 		}
     }
@@ -1276,11 +1278,11 @@ NSString* flickrApiCall(NSString* params) {
 }
 
 
-NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* tags)
+NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* pictags)
 {
 	// TO-DO: Quote processing of filename
 	NSLog(@"Inside  prepareUploadData\n");
-	NSMutableData *cooked=internalPreparePOSTData(info ,auth ,YES ,NO, tags);
+	NSMutableData *cooked=internalPreparePOSTData(info ,auth ,YES ,NO, pictags);
 	
 	NSString *lastpart = [filename lastPathComponent];
 	NSString *extension = [filename pathExtension];
@@ -1305,7 +1307,7 @@ NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, 
 	return cooked;
 }
 
-NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* tags)
+NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* pictags)
 {
 	NSLog(@"Inside  internalPreparePOSTData\n");
 	NSMutableData *data=[NSMutableData data];
@@ -1316,7 +1318,7 @@ NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth
 	
 	if (auth) [newparam setObject:auth forKey:@"auth_token"];
 	
-	if (tags) [newparam setObject:tags forKey:@"tags"];
+	if (pictags) [newparam setObject:pictags forKey:@"tags"];
 	
 	if (sign) {
 		NSString *apisig=md5sig(newparam);
