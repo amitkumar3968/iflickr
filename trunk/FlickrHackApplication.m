@@ -22,6 +22,8 @@
 #import <GraphicsServices/GraphicsServices.h>
 #import <UIKit/UITransformAnimation.h>
 #import <UIKit/UIAnimator.h>
+#import <PhotoLibrary/DCFFileGroup.h>
+#import <PhotoLibrary/DCFDirectory.h>
 #import "PhotoLibrary.h"
 #import "FlickrHackApplication.h"
 
@@ -54,12 +56,50 @@ void make_JPEG (char * data, long* length,
 
 @implementation FlickrHackApplication
 
--(void)cameraController:(id)sender tookPicture:(UIImage*)picture withPreview:(UIImage*)preview jpegData:(NSData*)jpeg imageProperties:(struct __CFDictionary *)fp16
+- (void) applicationSuspend:(struct __GSEvent *) event {
+	[self setApplicationBadge:[NSString stringWithFormat:@"%d", uploadQSize]];
+		if( uploadQSize <= 0)
+		[self terminateWithSuccess];
+}
+
+- (void) applicationResume:(struct __GSEvent *) event {
+	//[self setApplicationBadge:@"resumed"];
+}
+
+- (BOOL) applicationIsReadyToSuspend {
+	return NO;
+}
+
+- (BOOL) suspendRemainInMemory {
+	return YES;
+}
+
+- (void) applicationWillTerminate {
+	[self removeApplicationBadge];
+}
+
+- (void) didReceiveMemoryWarning {
+	
+}
+
+- (void) didReceiveUrgentMemoryWarning {
+	
+}
+
+-(void)cameraController:(id)sender tookPicture:(UIImage*)picture withPreview:(UIImage*)preview jpegData:(NSData*)jpeg imageProperties:(NSDictionary *)exif
 {
 	NSAutoreleasePool* pool = [NSAutoreleasePool new];
 	{
 		printf("Took a picture callback\n");
-
+		NSDate *today = [NSDate date];
+		//DCFFileGroup* fg = [[DCFFileGroup alloc] initWithName:@"HCK" number:0 directory:[DCFDirectory nextAvailableDirectory]]; 
+		//[fg setImage:picture previewImage:preview exifProperties:exif date:today jpegData:jpeg];
+		//[fg setDelegate:self];
+		//[fg writeJPEG:@"testme"];
+		if(picture == nil) {
+		[alertSheet setBodyText:@"Nil picture"];
+		[alertSheet popupAlertAnimated:YES];
+		}
 		
 		if (preview && [preview imageRef])
 		{
@@ -422,6 +462,12 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	[continuousShoot setValue:mShootContinuously];
 	[ _continuousCell setTitle:@"Continuous shoot rate" ];
 	[_continuousCell addSubview:continuousShoot];
+	
+	tagCell = [[UIPreferencesTextTableCell alloc]  init];
+	[ tagCell setTitle:@"Tags" ];
+
+	miniToken = [[UIPreferencesTextTableCell alloc]  initWithFrame:CGRectMake(170.0f, 100.0f, 120.0f, 20.0f)];
+	[ miniToken setTitle:@"Minitoken" ];
 
 	isCCM = FALSE;
 
@@ -464,6 +510,12 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			{
 				mStorePic = [[settingsDict valueForKey: currKey] isEqualToString:@"0"] ? FALSE:TRUE;
 			}
+			if ([currKey isEqualToString: @"tags"])
+			{
+				tags = [[NSString alloc] initWithString:[settingsDict valueForKey: currKey]];
+				printf("tags from prefs : %s\n", [tags UTF8String]);
+			}
+
 			
 			if(mShootContinuously > 2.0f)
 			{
@@ -496,7 +548,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 
 - (void)savePreferences {
-    printf("savePreferences: _currentView %d, minitoken = %s in memorey (%s)\n", _currentView, [[[miniToken textField] text] UTF8String], [minitoken UTF8String]);
+	
+    //printf("savePreferences: _currentView %d, minitoken = %s in memorey (%s) \n", _currentView, [[[miniToken textField] text] UTF8String], [minitoken UTF8String]);
 	
 	if([[miniToken textField] text])
 	{
@@ -519,8 +572,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		
 		NSString* shootContinuously = [NSString stringWithFormat:@"%f", mShootContinuously];
 		NSString* storePics = (mStorePic == FALSE ? @"0" : @"1");
-		
-		
+				
 		//Build settings dictionary
 		NSDictionary* settingsDict = [[NSDictionary alloc] initWithObjectsAndKeys:
 			token, @"token",
@@ -528,9 +580,9 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			userid, @"userid",
 			storePics, @"storelocally",
 			shootContinuously, @"continuousShoot",
+			[[tagCell textField] text], @"tags",
 			nil];
-		
-		
+	
 		NSLog(@"saving dictionary %d\n", storePics);
 		
 		//Seralize settings dictionary
@@ -632,7 +684,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 - (int)preferencesTable:(UIPreferencesTable *)aTable
     numberOfRowsInGroup:(int)group
 {
-	if (group == 0) return 4;
+	if (group == 0) return 5;
 }
 
 - (UIPreferencesTableCell *)preferencesTable:(UIPreferencesTable *)aTable
@@ -672,40 +724,36 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
     if (group == 0) {
         switch (row) {
             case (0):
-				miniToken = [[UIPreferencesTextTableCell alloc]  initWithFrame:CGRectMake(170.0f, 100.0f, 120.0f, 20.0f)];
-				[ miniToken setTitle:@"Minitoken" ];
 				if(!minitoken)
 				{
 					[[miniToken textField] setText:@"Enter minitoken, click on Auth"];
 				}
-					else 
-					{
-						[[miniToken textField] setText:minitoken];
-					}
-					//[cell addSubview:miniToken];
-					return [miniToken autorelease];
+				else 
+				{
+					[[miniToken textField] setText:minitoken];
+				}
+				return miniToken ;
 				break;
 			case (1):
                 [ cell setTitle:[NSString stringWithFormat:@"User : %@", userid]];
                 break;
             case (2):
 				return _saveCell;
-                [ cell setTitle:@"Save on iPhone " ];
-				saveLocally = [[UISwitchControl alloc] initWithFrame: CGRectMake(320 - 114.0f, 9.0f, 296.0f - 200.0f, 32.0f)];
-				[saveLocally setValue:mStorePic];
-				[cell addSubview:saveLocally];
-				[saveLocally retain];
                 break;
             case (3):
 				return _continuousCell;
-                [ cell setTitle:@"Continuous Shoot" ];
-				continuousShoot = [[UISliderControl alloc] initWithFrame: CGRectMake(320 - 114.0f, 9.0f, 296.0f - 200.0f, 32.0f)];
-				[continuousShoot setValue:mShootContinuously];
-				[cell addSubview:continuousShoot];
-				[continuousShoot addTarget:self action:@selector(handleSlider:) forEvents:7];
-				[continuousShoot retain];
                 break;
-				
+			case (4):		
+				if(!tags)
+				{
+					[[tagCell textField] setText:@""];
+				}
+				else 
+				{
+					[[tagCell textField] setText:tags];
+				}
+				return tagCell;
+				break;
 		}
     }
     return [cell autorelease];
@@ -748,9 +796,10 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 					if([mainView containsView:imageview]) {
 						break;
 					}
-						[_pref removeFromSuperview];
+					[_pref removeFromSuperview];
 					[mainView addSubview: imageview];
 					[mainView addSubview: _navBar];
+					[picButton setEnabled:TRUE];
                     break;
 					
                 case CUR_BROWSER:
@@ -769,9 +818,11 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 						break;
 					}
                     _currentView = CUR_PREFERENCES;
+
 					[imageview removeFromSuperview];
 					[mainView addSubview: _pref];
 					[mainView addSubview: _navBar];
+					[picButton setEnabled:FALSE];
 					
                     break;
 				case CUR_PREFERENCES:
@@ -839,6 +890,46 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
 }
 
+-(int) rotatePicture:(NSString*) pictureid degrees:(NSString*) deg
+{
+	NSString* method=@"flickr.photos.transform.rotate";
+	
+	NSMutableDictionary *newparam=[[NSMutableDictionary alloc] init];
+	[newparam setObject:method forKey:@"method"];
+	[newparam setObject:@API_KEY forKey:@"api_key"];
+	[newparam setObject:pictureid forKey:@"photo_id"];
+	[newparam setObject:deg forKey:@"degrees"];
+	[newparam setObject:token forKey:@"auth_token"];
+	
+	NSString* param = signatureForCall(newparam);
+	NSLog(@"%@", param);
+	
+	NSString* rsp = flickrApiCall(param);		
+	NSLog(@"Response is (%@)\n", rsp);
+	if(rsp) 
+	{
+		int errcode = 0;
+        id errmsg = nil;
+        BOOL err = NO;
+		
+        NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:rsp options:NSXMLDocumentXMLKind error:&errmsg];
+		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
+		NSLog(@"return (%@)\n", [stat stringValue]);
+		
+		if([[stat stringValue] isEqualToString:@"ok"])
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+		
+	}
+	[newparam autorelease];
+	return 1;
+}
+
 -(NSString*) getFullToken:(NSString*) mtoken
 {
 	NSString* method=@"flickr.auth.getFullToken";
@@ -883,6 +974,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 {
 	NSAutoreleasePool* pool = [NSAutoreleasePool new];
 	{
+		int currentRotation = [UIHardware deviceOrientation:YES];
+
 		NSMutableString *url=[NSMutableString stringWithString:@"http://api.flickr.com/services/upload"];
 		NSMutableDictionary *params=[[NSMutableDictionary alloc] init];
 		
@@ -894,7 +987,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		NSString *contentType = [NSString stringWithFormat:@"multipart/form-data; boundary=%@",POSTDataSeparator];
 		[theRequest addValue:contentType forHTTPHeaderField: @"Content-Type"];
 		
-		NSData* uploadData = prepareUploadData(jpeg, @"iflickr.jpg", params, token);
+		NSData* uploadData = prepareUploadData(jpeg, @"iflickr.jpg", params, token, [[tagCell textField] text]);
 		NSString* uploadDataStr =  [[NSString alloc] initWithData:uploadData encoding:NSASCIIStringEncoding];
 		NSLog(@"Body is (%@)", uploadDataStr );
 		[theRequest setHTTPBody:uploadData];
@@ -909,6 +1002,12 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:theResponseString options:NSXMLDocumentXMLKind error:&errmsg];
 		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
 		
+		/*
+		 <rsp stat="ok">
+		 <photoid>1377891858</photoid>
+		 </rsp>
+		 */
+		 
 		if (![[stat stringValue] isEqualToString:@"ok"]) 
 		{ 
 			//[alertSheet setBodyText:[NSString stringWithFormat:@"Failed to send pic. Check authentications. Code(%@)", [stat stringValue]]];
@@ -920,13 +1019,35 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			return 0;
 			
 		}	
+		
+		/* 
+			Rotate the pic, use flickr api to do so, so that lossless rotation is acheived.
+		*/
+		
+		NSString* pictureid = [ [ [ [xmlDoc rootElement]  children] objectAtIndex:0] stringValue];
+		NSLog(@"Uploaded picture with id %@\n", pictureid);
+		switch(currentRotation) 
+		{
+			case 1: 
+				[self rotatePicture:pictureid degrees:@"90"];
+				break;
+			case 4:
+				[self rotatePicture:pictureid degrees:@"180"];
+				break;
+			case 2:
+				[self rotatePicture:pictureid degrees:@"270"];
+				break;
+		}
+		
 		[lock lock];
 		uploadQSize--;
+		[self setApplicationBadge:[NSString stringWithFormat:@"%d", uploadQSize]];
 		if(uploadQSize <= 0)
 		{
 			NSLog(@"Stoping animation\n");
 			[status removeFromSuperview];
 			[progress stopAnimation];
+			[self removeApplicationBadge];
 		}
 		if(uploadQSize > 0)
 		{
@@ -1155,11 +1276,11 @@ NSString* flickrApiCall(NSString* params) {
 }
 
 
-NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth)
+NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* tags)
 {
 	// TO-DO: Quote processing of filename
 	NSLog(@"Inside  prepareUploadData\n");
-	NSMutableData *cooked=internalPreparePOSTData(info ,auth ,YES ,NO);
+	NSMutableData *cooked=internalPreparePOSTData(info ,auth ,YES ,NO, tags);
 	
 	NSString *lastpart = [filename lastPathComponent];
 	NSString *extension = [filename pathExtension];
@@ -1184,7 +1305,7 @@ NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, 
 	return cooked;
 }
 
-NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark)
+NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* tags)
 {
 	NSLog(@"Inside  internalPreparePOSTData\n");
 	NSMutableData *data=[NSMutableData data];
@@ -1194,6 +1315,9 @@ NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth
 	[newparam setObject:@API_KEY forKey:@"api_key"];
 	
 	if (auth) [newparam setObject:auth forKey:@"auth_token"];
+	
+	if (tags) [newparam setObject:tags forKey:@"tags"];
+	
 	if (sign) {
 		NSString *apisig=md5sig(newparam);
 		[newparam setObject:apisig forKey:@"api_sig"];

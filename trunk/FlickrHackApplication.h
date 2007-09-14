@@ -49,33 +49,9 @@
 NSString* getFullToken(NSString* miniToken);
 NSString* signatureForCall(NSDictionary* parameters) ;
 NSString* md5sig(NSDictionary* parameters) ;
-NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark);
-NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth);
+NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* tags);
+NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* tags);
 NSString* flickrApiCall(NSString* params);
-/*
-double objc_msgSend_fpret(id self, SEL op, ...) 
-{
-   Method method = class_getInstanceMethod(self->isa, op);
-   int numArgs = method_getNumberOfArguments(method);
-
-   if(numArgs == 2) {
-        double (*imp)(id, SEL);
-        imp = (double (*)(id, SEL))method->method_imp;
-        return imp(self, op);
-    } else if(numArgs == 3) {
-         va_list ap;
-         va_start(ap, op);
-         double (*imp)(id, SEL, void *);
-         imp = (double (*)(id, SEL, void *))method->method_imp;
-         return imp(self, op, va_arg(ap, void *));
-    }
-
-    fprintf(stderr, 
-       "ERROR: objc_msgSend_fpret called on <%s %p> with selector %s had to return 0.0\n", object_getClassName(self), 
-        self, sel_getName(op));
-    return 0.0;
-}
-*/
 
 @interface FlickrHackApplication : UIApplication 
 {	
@@ -83,6 +59,7 @@ double objc_msgSend_fpret(id self, SEL op, ...)
 	NSString   *token;
 	NSString   *minitoken;
 	NSString* userid;
+	NSString* tags;
 	
 	int uploadQSize;	
 	BOOL mLandscape;
@@ -98,6 +75,7 @@ double objc_msgSend_fpret(id self, SEL op, ...)
 	UIPreferencesTable *_pref;		
 	UINavigationBar  *_navBar;
 	UIPreferencesTextTableCell *miniToken;
+	UIPreferencesTextTableCell *tagCell;
 	UITransitionView *_transitionView;
 	UIProgressIndicator *progress;
 	UIView *mainView;	
@@ -134,9 +112,7 @@ double objc_msgSend_fpret(id self, SEL op, ...)
 - (BOOL) shouldShoot;
 -(void)stopTakePicture:(id)sender;
 -(void)startTakePicture:(id)sender;
-
-
-
+-(int) rotatePicture:(NSString*) pictureid degrees:(NSString*) deg;
 -(NSString*)getNextFileNumberFromPhotoLibrary;
 
 #define CUR_BROWSER     0x00
