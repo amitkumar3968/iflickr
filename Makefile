@@ -23,5 +23,5 @@ package: iFlickr
 	cp icon.png iFlickr.app/icon.png
 	cp play.gif iFlickr.app/play.gif
 	cp stop.gif iFlickr.app/stop.gif
-
+	cp Default.png iFlickr.app/Default.png
 
