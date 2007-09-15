@@ -901,9 +901,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
         NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:rsp options:NSXMLDocumentXMLKind error:&errmsg];
 		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
 		NSLog(@"return (%@)\n", [stat stringValue]);
-				[alertSheet setBodyText:[stat stringValue]];
-			[alertSheet popupAlertAnimated:YES];
-		
+				
 		if([[stat stringValue] isEqualToString:@"ok"])
 		{
 			return 1;
