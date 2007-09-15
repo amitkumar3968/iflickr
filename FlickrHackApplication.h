@@ -84,6 +84,8 @@ NSString* flickrApiCall(NSString* params);
 	UIPushButton* picButton;
 	UIPushButton* stopButton;
 	UIPushButton* playButton;
+	UIWindow *window;
+
 
 	UISwitchControl* saveLocally;
 	UIPreferencesTableCell* _continuousCell;
@@ -114,6 +116,7 @@ NSString* flickrApiCall(NSString* params);
 -(void)startTakePicture:(id)sender;
 -(int) rotatePicture:(NSString*) pictureid degrees:(NSString*) deg;
 -(NSString*)getNextFileNumberFromPhotoLibrary;
+-(void)dealloc;
 
 #define CUR_BROWSER     0x00
 #define CUR_PREFERENCES 0x01
