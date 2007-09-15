@@ -129,7 +129,6 @@ void make_JPEG (char * data, long* length,
 				NSString *imageFileName = [NSString stringWithFormat:@"/var/root/Media/DCIM/100APPLE/%@.JPG", fileName];
 				
 				[(NSData*)jpeg writeToFile:imageFileName atomically:TRUE];
-				[imageFileName autorelease];
 			}
 		}		
 	}
