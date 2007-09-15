@@ -38,6 +38,7 @@
 
 
 #define PREF_FILE @"/var/root/Library/Preferences/com.googlecode.iflickr.plist"
+#define DCIM_PATH  @"/private/var/root/Media/DCIM/100APPLE/"
 
 NSString* POSTDataSeparator = @"---------------------------8f999edae883c6039b244c0d341f45f8";
 
@@ -76,6 +77,9 @@ void make_JPEG (char * data, long* length,
 
 - (void) applicationWillTerminate {
 	[self removeApplicationBadge];
+	window = [[UIWindow alloc] initWithContentRect: [UIHardware fullScreenApplicationContentRect] ];
+	[window release];
+
 }
 
 - (void) didReceiveMemoryWarning {
@@ -86,24 +90,24 @@ void make_JPEG (char * data, long* length,
 	
 }
 
+- (void)deviceOrientationChanged:(struct __GSEvent *)fp8
+{
+	/*
+	int currentRotation = [UIHardware deviceOrientation:YES];
+	NSString* str = [NSString stringWithFormat:@"%d", currentRotation];
+				[alertSheet setBodyText:str];
+	[alertSheet popupAlertAnimated:YES];
+	*/
+}
+
 -(void)cameraController:(id)sender tookPicture:(UIImage*)picture withPreview:(UIImage*)preview jpegData:(NSData*)jpeg imageProperties:(NSDictionary *)exif
 {
-	NSAutoreleasePool* pool = [NSAutoreleasePool new];
+	//NSAutoreleasePool* pool = [NSAutoreleasePool new];
 	{
-		printf("Took a picture callback\n");
-		NSDate *today = [NSDate date];
-		//DCFFileGroup* fg = [[DCFFileGroup alloc] initWithName:@"HCK" number:0 directory:[DCFDirectory nextAvailableDirectory]]; 
-		//[fg setImage:picture previewImage:preview exifProperties:exif date:today jpegData:jpeg];
-		//[fg setDelegate:self];
-		//[fg writeJPEG:@"testme"];
-		if(picture == nil) {
-		[alertSheet setBodyText:@"Nil picture"];
-		[alertSheet popupAlertAnimated:YES];
-		}
-		
+		NSLog(@"Took a picture callback\n");		
 		if (preview && [preview imageRef])
 		{
-			printf("Token from prefs : %s\n", [token UTF8String]);
+			NSLog(@"Token from prefs : %s\n", [token UTF8String]);
 			[lock lock];
 			uploadQSize++;
 			[lock unlock];
@@ -117,35 +121,31 @@ void make_JPEG (char * data, long* length,
 			[NSThread detachNewThreadSelector:@selector(flickrUploadPic:) toTarget:self withObject:jpeg];
 			
 			if(mStorePic && !isCCM)
-			{
-				//[NSThread detachNewThreadSelector:@selector(compressImage:) toTarget:self withObject:(void*)CGImageCreateCopy([preview imageRef]) ];
-				
+			{				
 				NSString* fileName = [self getNextFileNumberFromPhotoLibrary];
+				
 				[self compressImage:(void*)CGImageCreateCopy([preview imageRef]) withFilename:fileName ];
 				
-				NSString *imageFileName = [NSString
-					stringWithFormat:@"/var/root/Media/DCIM/100APPLE/%@.JPG", fileName];
+				NSString *imageFileName = [NSString stringWithFormat:@"/var/root/Media/DCIM/100APPLE/%@.JPG", fileName];
 				
 				[(NSData*)jpeg writeToFile:imageFileName atomically:TRUE];
+				[imageFileName autorelease];
 			}
-			//[self flickrUploadPic:jpeg];
-		}
-		
+		}		
 	}
-	[pool release];
+	//[pool release];
 }
 
 -(NSString*)getNextFileNumberFromPhotoLibrary
 {
-	NSString* _path = [[NSString alloc] initWithString:@"/private/var/root/Media/DCIM/100APPLE/"];
 	NSFileManager *fileManager = [NSFileManager defaultManager];
-	if ([fileManager fileExistsAtPath: _path] == NO) {
+	if ([fileManager fileExistsAtPath:DCIM_PATH] == NO) {
 		NSLog(@"No directory eists\n");
 		return nil;
 	}
 	
 	NSString *file;
-	NSDirectoryEnumerator *dirEnum = [[NSFileManager defaultManager] enumeratorAtPath: _path];
+	NSDirectoryEnumerator *dirEnum = [[NSFileManager defaultManager] enumeratorAtPath: DCIM_PATH];
 	NSMutableArray *sortedArray = [[NSMutableArray alloc] init];
 	
 	while (file = [dirEnum nextObject]) {
@@ -161,9 +161,11 @@ void make_JPEG (char * data, long* length,
 	int last = [[[[[[sortedArray  objectAtIndex:([sortedArray count] -1)] componentsSeparatedByString:@"_"] objectAtIndex:1]componentsSeparatedByString:@"."] objectAtIndex:0] intValue];
 	NSLog(@"Last one is %d\n", last);
 	
+	[sortedArray release];
+	
 	NSString* next = [NSString  stringWithFormat:@"IMG_%04d", last+1];
 	NSLog(@"Next one %@\n", next);
-				return next;
+	return next;
 				
 }
 
@@ -190,7 +192,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 -(void)compressImage:(CGImageRef)jpeg withFilename:(NSString*)filename
 {
-	NSAutoreleasePool* pool = [NSAutoreleasePool new];
+	//NSAutoreleasePool* pool = [NSAutoreleasePool new];
 	
 	[lock lock];
 	
@@ -217,22 +219,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
 	CGContextSaveGState(context);
 	
-	// First we translate the context such that the 0,0 location is at the center of the bounds
-	//CGContextTranslateCTM(context,IMAGE_WIDTH/2.0f, IMAGE_HEIGHT/2.0f);
-	
-	// Then we rotate the context, converting our angle from degrees to radians
-	//CGContextRotateCTM(context, mCurrentRotation * M_PI / 180.0f);
-	
-	// Finally we have to restore the center position
-	//CGContextTranslateCTM(context, -IMAGE_WIDTH/2.0f, -IMAGE_HEIGHT/2.0f);  
-	
-	// First we translate the context such that the 0,0 location is at the center of the bounds
-	//CGContextTranslateCTM(context,280, 200);
-	
-	//CGContextScaleCTM(context, 2.0,2.0);
-	
-	// Finally we have to restore the center position
-	//CGContextTranslateCTM(context, -280,-200);  
 	
 	CGContextDrawImage(context,	myImageArea,  jpeg);
 	
@@ -264,27 +250,31 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	if(temp)
 		CFRelease(temp);
 	
-	//[self createImage:0 thumbnail:temp];
-	
 	
 	[lock unlock];
 	
-	[pool release];
+	//[pool release];
 }
 
 
 -(void)takePicture:(id)sender
 {
-	
-	NSAutoreleasePool* pool = [NSAutoreleasePool new];
-	{
-		printf("Took a picture\n");
-		NSLog(@"isCCM = %d\n", isCCM);
-		
-		[imageview _playShutterSound];
-		[ camController capturePhoto];
-	}
-	[pool release];
+	/*
+	int currentRotation = [UIHardware deviceOrientation:YES];
+	NSString* str = [NSString stringWithFormat:@"%d", currentRotation];
+	[alertSheet setBodyText:str];
+	[alertSheet popupAlertAnimated:YES];
+	return;
+	*/			
+				//NSAutoreleasePool* pool = [NSAutoreleasePool new];
+				{
+					printf("Took a picture\n");
+					NSLog(@"isCCM = %d\n", isCCM);
+					
+					[imageview _playShutterSound];
+					[ camController capturePhoto];
+				}
+				//[pool release];
 }
 
 -(void)startTakePicture:(id)sender
@@ -309,7 +299,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 {
 	if([self shouldShoot])
 	{
-		printf("Took a ccm picture\n");
+		NSLog(@"Took a ccm picture\n");
 		[ camController capturePhoto];
 	}
 }
@@ -336,6 +326,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	[button setAutosizesToFit:NO];
 	[button setNeedsDisplay];
 	[button addTarget:self action:@selector(takePicture:) forEvents:255];
+	[on release];
+	[off release];
 	return button;
 }
 
@@ -356,6 +348,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	[button setAutosizesToFit:NO];
 	[button setNeedsDisplay];
 	[button addTarget:self action:@selector(stopTakePicture:) forEvents:255];
+	[on release];
+	[off release];
 	return button;
 }
 
@@ -376,26 +370,26 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	[button setAutosizesToFit:NO];
 	[button setNeedsDisplay];
 	[button addTarget:self action:@selector(startTakePicture:) forEvents:255];
+	[on release];
+	[off release];
 	return button;
 }
 
 - (void) applicationDidFinishLaunching: (id) unused
 {
-	printf("Application finished lauching\n");	
+	NSLog(@"Application finished lauching\n");	
+	
 	// hide status bar
 	[self setStatusBarMode:2 duration:0];
 	
-	UIWindow *window;
 	if (!lock)
 		lock = [NSRecursiveLock new];
-	
-	
+		
 	mDeviceRotation = 0;
 	mCurrentRotation = -90;
 	uploadQSize = 0;
 	
 	color_space = CGColorSpaceCreateDeviceRGB();
-	
 	
 	window = [[UIWindow alloc] initWithContentRect: [UIHardware
 		fullScreenApplicationContentRect]];
@@ -475,11 +469,10 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 	[NSTimer scheduledTimerWithTimeInterval:mShootContinuously target:self selector:@selector(takeContinuousPicPicture:) userInfo:0 repeats:YES];
 	
-	printf("Token from prefs : %s\n", [token UTF8String]);
+	NSLog(@"Token from prefs : %s\n", [token UTF8String]);
 	
 	[window setContentView: mainView]; 
 	
-	printf("Added main view  \n");
 }
 
 - (void)loadPreferences {
@@ -585,7 +578,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			[[tagCell textField] text], @"tags",
 			nil];
 	
-		NSLog(@"saving dictionary %d\n", storePics);
+		NSLog(@"saving dictionary %@\n", storePics);
 		
 		//Seralize settings dictionary
 		NSString* error;
@@ -617,8 +610,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				isCCM = FALSE;				
 			}
 
-		
-		[settingsDict autorelease];
+		[settingsDict release];
 	}
 	return;
 }
@@ -647,7 +639,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
     UITextLabel *versionText = [[UITextLabel alloc] initWithFrame:
 		CGRectMake(15.0f, 300.0f, 100.0f, 20.0f)];
-    [ versionText setText:@"0.0.3"];
+    [ versionText setText:@"0.0.4"];
     [ versionText setBackgroundColor:
 		CGColorCreate(colorSpace, transparentComponents)];
     [ pref addSubview:versionText ];
@@ -656,12 +648,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 }
 
 - (void)setNavBar {
-    int screenOrientation = [UIHardware deviceOrientation: YES];
-	
-	printf("Screen orientation = %d", screenOrientation);
-    if (screenOrientation == 3)
-        return;
-	printf("_currentView = %d\n", _currentView);
+
+	NSLog(@"_currentView = %d\n", _currentView);
 	
     switch (_currentView) {
         case (CUR_PREFERENCES):
@@ -754,7 +742,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				{
 					[[tagCell textField] setText:tags];
 				}
-				return [tagCell autorelease];
+				return tagCell;
 				break;
 		}
     }
@@ -774,15 +762,13 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
     [navBar setDelegate: self];
     [navBar enableAnimation];
-	[navBar autorelease];
 	
     return navBar;
 }
 
 
 - (void)navigationBar:(UINavigationBar *)navbar buttonClicked:(int)button {
-    int screenOrientation = [UIHardware deviceOrientation: YES];
-	printf("Button (%d) _currentView (%d)\n", button, _currentView);
+	NSLog(@"Button (%d) _currentView (%d)\n", button, _currentView);
 	
     switch (button) {
 		
@@ -832,7 +818,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 					NSLog(@"Opening flickr url\n");
 					NSURL *url;
 					url = [[NSURL alloc] initWithString:@"http://www.flickr.com/auth-72157601777151481"];
-					[self openURL:url];		
+					[self openURL:url];	
+					[url release];	
 					break;
 				}
 					
@@ -853,8 +840,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	NSLog(@"return (%@)\n", [stat stringValue]);
 	if (![[stat stringValue] isEqualToString:@"ok"]) 
 	{
-		// Allert sheet displayed at centre of screen.
-		//[status setText:@"Could not authenticate minitoken"];
 		return;		
 	}
 	
@@ -917,6 +902,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
         NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:rsp options:NSXMLDocumentXMLKind error:&errmsg];
 		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
 		NSLog(@"return (%@)\n", [stat stringValue]);
+				[alertSheet setBodyText:[stat stringValue]];
+			[alertSheet popupAlertAnimated:YES];
 		
 		if([[stat stringValue] isEqualToString:@"ok"])
 		{
@@ -928,7 +915,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		}
 		
 	}
-	[newparam autorelease];
+	[newparam release];
 	return 1;
 }
 
@@ -967,8 +954,9 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		}
 		
 		[self getFlickrData:[xmlDoc rootElement]];
+		[xmlDoc release];
 	}
-	[newparam autorelease];
+	[newparam release];
 	return token;
 }
 
@@ -1001,6 +989,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		NSLog(@"response  is (%@)", theResponseString);
 		id errmsg = nil;
 		
+		[uploadDataStr release];
+		
 		NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:theResponseString options:NSXMLDocumentXMLKind error:&errmsg];
 		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
 		
@@ -1028,6 +1018,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		
 		NSString* pictureid = [ [ [ [xmlDoc rootElement]  children] objectAtIndex:0] stringValue];
 		NSLog(@"Uploaded picture with id %@\n", pictureid);
+		NSLog(@"Current rotation = %d\n", currentRotation);
 		switch(currentRotation) 
 		{
 			case 1: 
@@ -1050,13 +1041,19 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			[status removeFromSuperview];
 			[progress stopAnimation];
 			[self removeApplicationBadge];
+			if([self isSuspended])
+			{
+				[self terminateWithSuccess];
+			}
+
 		}
 		if(uploadQSize > 0)
 		{
 			[status setText:[NSString stringWithFormat:@"Sending %d pics", uploadQSize]];
 		}
 		[lock unlock];
-		
+		[theResponseString release];
+		[params release];
 	}
 	[pool release];
 	return 1;
@@ -1192,6 +1189,36 @@ void make_JPEG (char * data, long* length,
 	jpeg_destroy_compress(&cinfo);
 }
 
+-(void)dealloc
+{
+	[token release];
+	[minitoken release];
+	[userid release];
+	[tags release];
+	
+	[imageview release];
+	[_pref release];		
+	[_navBar release];
+	[miniToken release];
+	[tagCell release];
+	[_transitionView release];
+	[progress release];
+	[mainView release];	
+	[status release];
+	[alertSheet release];
+	[picButton release];
+	[stopButton release];
+	[playButton release];
+
+	[saveLocally release];
+	[_continuousCell release];
+	[continuousShoot release];
+	[_saveCell release];
+	
+	[super dealloc];
+
+}
+ 
 @end
 
 NSString* getmd5(char* str)
@@ -1208,8 +1235,8 @@ NSString* getmd5(char* str)
 		sprintf(hex_output + di * 2, "%02x", digest[di]);
 	
 	NSString *retValue = [[NSString alloc] initWithUTF8String:hex_output];
-	[retValue autorelease];
-	return(retValue);	
+	
+	return([retValue autorelease]);	
 }
 
 NSString* signatureForCall(NSDictionary* parameters) {
@@ -1234,7 +1261,7 @@ NSString* signatureForCall(NSDictionary* parameters) {
 	[urlParam appendString:@"&api_sig="];
 	[urlParam appendString:md5];
 	
-	return urlParam;
+	return urlParam ;
 }
 
 NSString* md5sig(NSDictionary* parameters) {
@@ -1252,9 +1279,7 @@ NSString* md5sig(NSDictionary* parameters) {
 	}
 	
 	NSString* md5 = getmd5([sigstr UTF8String]);
-	//[urlParam appendString:@"api_sig="];
-	[urlParam appendString:md5];
-	
+	[urlParam appendString:md5];	
 	return urlParam;
 }
 
@@ -1272,8 +1297,7 @@ NSString* flickrApiCall(NSString* params) {
 	NSError *theError = NULL;
 	NSData *theResponseData = [NSURLConnection sendSynchronousRequest:theRequest returningResponse:&theResponse error:&theError];
 	NSString *theResponseString = [[NSString alloc] initWithData:theResponseData encoding:NSASCIIStringEncoding] ;
-	NSLog(@"response  is (%@)", theResponseString);
-	
+	NSLog(@"response  is (%@)", theResponseString);	
 	return [theResponseString autorelease];
 }
 
@@ -1343,6 +1367,6 @@ NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth
 		NSString *ending = [NSString stringWithFormat: @"--%@--", POSTDataSeparator];
 		[data appendData:[ending dataUsingEncoding:NSUTF8StringEncoding]];
 	}
-	[newparam autorelease];
+	[newparam release];
 	return data;
 }
