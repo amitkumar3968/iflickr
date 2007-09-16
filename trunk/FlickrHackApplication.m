@@ -981,33 +981,46 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		
 		NSURLResponse *theResponse = NULL;
 		NSError *theError = NULL;
-		NSData *theResponseData = [NSURLConnection sendSynchronousRequest:theRequest returningResponse:&theResponse error:&theError];
-		NSString *theResponseString = [[NSString alloc] initWithData:theResponseData encoding:NSASCIIStringEncoding] ;
-		NSLog(@"response  is (%@)", theResponseString);
-		id errmsg = nil;
+		NSXMLNode *stat;
+		NSXMLDocument *xmlDoc;
+		NSData *theResponseData;
+		NSString *theResponseString;
 		
-		[uploadDataStr release];
-		
-		NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:theResponseString options:NSXMLDocumentXMLKind error:&errmsg];
-		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
-		
-		/*
-		 <rsp stat="ok">
-		 <photoid>1377891858</photoid>
-		 </rsp>
-		 */
-		 
+		/* Try 3 times to send he picture to flickr, useful when on EDGE. The connection seems to drop sometimes.*/
+		int i = 0;
+		for (i = 0; i < 3; i++ )
+		{
+			theResponseData = [NSURLConnection sendSynchronousRequest:theRequest returningResponse:&theResponse error:&theError];
+			theResponseString = [[NSString alloc] initWithData:theResponseData encoding:NSASCIIStringEncoding] ;
+			NSLog(@"response  is (%@)", theResponseString);
+			id errmsg = nil;
+			
+			[uploadDataStr release];
+			
+			xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:theResponseString options:NSXMLDocumentXMLKind error:&errmsg];
+			stat =[[xmlDoc rootElement] attributeForName:@"stat"];
+			
+			/*
+			 <rsp stat="ok">
+			 <photoid>1377891858</photoid>
+			 </rsp>
+			 */
+			
+			if ([[stat stringValue] isEqualToString:@"ok"]) 
+			{ 
+				break;
+			}
+		}
+		/* All retries exhausted...	*/
 		if (![[stat stringValue] isEqualToString:@"ok"]) 
 		{ 
-			//[alertSheet setBodyText:[NSString stringWithFormat:@"Failed to send pic. Check authentications. Code(%@)", [stat stringValue]]];
-			//[alertSheet popupAlertAnimated:YES];
 			[status setText:[NSString stringWithFormat:@"Failed to send pic. Check authentications."]];
 			[lock lock];
 			uploadQSize--;
 			[lock unlock];
 			return 0;
 			
-		}	
+		}
 		
 		/* 
 			Rotate the pic, use flickr api to do so, so that lossless rotation is acheived.
