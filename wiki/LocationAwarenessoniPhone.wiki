@@ -1,0 +1,18 @@
+#labels Featured
+Hack Cell id location into the iPhone and integrate with Yahoo! Zonetag (http://zonetag.research.yahoo.com//)
+
+= Introduction =
+
+Zonetag makes it easy to get Location. http://developer.yahoo.com/yrb/zonetag/locatecell.html
+
+= Details =
+
+Reverse engineer the FieldTest.app to get API calls that we need.
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
