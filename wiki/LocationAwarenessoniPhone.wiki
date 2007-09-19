@@ -9,6 +9,77 @@ Zonetag makes it easy to get Location. http://developer.yahoo.com/yrb/zonetag/lo
 
 Reverse engineer the FieldTest.app to get API calls that we need.
 
+Ok, finally managed to compile not crash after reverse engineering FieldTest.app but what does it do ;-)
+
+{{{
+
+include <CoreFoundation/CoreFoundation.h>
+
+#include <stdio.h>
+#include <time.h>
+#include <dlfcn.h>
+
+typedef struct __CFMachPort *CFMachPortRef;
+
+extern void * _CTServerConnectionCreate(CFAllocatorRef, int (*)(void *, CFStringRef, CFDictionaryRef, void *), int *);
+extern int _CTServerConnectionSetVibratorState(int *, void *, int, int, int, int, int);
+extern int _CTServerConnectionRegisterForNotification(void*, void*, int*);
+extern mach_port_t _CTServerConnectionGetPort(void*);
+extern void _CTServerConnectionCellMonitorStart( void*);
+
+int callback(void *connection, CFStringRef string, CFDictionaryRef dictionary, void *data) {
+        printf("callback (but it never calls me back :( ))\n");
+        CFShow(string);
+        CFShow(dictionary);
+
+        return 0;
+}
+
+void sourcecallback ( CFMachPortRef port, void *msg, CFIndex size, void *info)
+{
+        printf("Source called back\n");
+}
+
+int main() {
+        printf("10 seconds of pleasure!!111!!one!!!!111!!\n");
+
+        int x = 0;
+
+        void *connection = _CTServerConnectionCreate(kCFAllocatorDefault, callback, &x);
+        void    *handle;
+        handle = dlopen("/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony", RTLD_LOCAL | RTLD_LAZY);
+        void* kCTCellMonitorUpdateNotification = dlsym(handle, "kCTCellMonitorUpdateNotification");
+        if( kCTCellMonitorUpdateNotification== NULL)
+        {
+                printf("Could not find kCTCellMonitorUpdateNotification\n");
+        }
+
+        _CTServerConnectionRegisterForNotification(connection,kCTCellMonitorUpdateNotification,&x);
+        mach_port_t port ;
+        printf("%d\n", port);
+        port  = _CTServerConnectionGetPort(connection);
+        printf("%d\n", port);
+        printf("%x\n", connection);
+        CFMachPortContext  context = { 0, 0, NULL, NULL, NULL };
+
+        //Boolean shouldFreeInfo = false;
+        printf("Done\n");
+
+        CFMachPortRef ref = CFMachPortCreateWithPort(kCFAllocatorDefault,port,NULL,NULL, NULL);
+
+           CFRunLoopSourceRef rlref = CFMachPortCreateRunLoopSource ( kCFAllocatorDefault, ref, 0);
+           CFRunLoopRef currentRunLoop = CFRunLoopGetCurrent();
+           CFRunLoopAddSource(currentRunLoop, rlref, kCFRunLoopCommonModes);
+           _CTServerConnectionCellMonitorStart( connection);
+
+        sleep(15);
+        return 0;
+}
+
+}}}
+
+
+ 
  
  
  
