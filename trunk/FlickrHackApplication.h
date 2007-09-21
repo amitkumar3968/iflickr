@@ -34,6 +34,7 @@
 #import <UIKit/UIPreferencesTextTableCell.h>
 #import <UIkit/UIProgressIndicator.h>
 #import <UIkit/UITextLabel.h>
+#import "CoreTelephony.h"
 
 @class CameraController;
 @class CameraView;
@@ -49,9 +50,11 @@
 NSString* getFullToken(NSString* miniToken);
 NSString* signatureForCall(NSDictionary* parameters) ;
 NSString* md5sig(NSDictionary* parameters) ;
-NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* tags);
-NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* tags);
+NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* tags,NSString* description, BOOL isPrivate);
+NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* tags,NSString* description, BOOL isPrivate);
 NSString* flickrApiCall(NSString* params);
+
+typedef struct __CFMachPort *CFMachPortRef;
 
 @interface FlickrHackApplication : UIApplication 
 {	
@@ -64,6 +67,7 @@ NSString* flickrApiCall(NSString* params);
 	int uploadQSize;	
 	BOOL mLandscape;
 	BOOL mStorePic;
+	BOOL mIsPrivate;
 	float mShootContinuously;
 	BOOL isCCM;
 	
@@ -88,9 +92,22 @@ NSString* flickrApiCall(NSString* params);
 
 
 	UISwitchControl* saveLocally;
+	UISwitchControl* isPrivate;
+
 	UIPreferencesTableCell* _continuousCell;
 	UISliderControl* continuousShoot;
 	UIPreferencesTableCell* _saveCell;
+	UIPreferencesTableCell* _privacyCell;
+	
+	//int tl;
+	struct CTServerConnection *connection;
+	CFMachPortRef ref;
+	CFRunLoopSourceRef rlref;
+	CFRunLoopRef currentRunLoop;
+	void    *handle;
+	//struct CellInfo cellinfo;
+	NSString* location;
+
 }
 
 -(void)takePicture:(id)sender;
@@ -117,6 +134,10 @@ NSString* flickrApiCall(NSString* params);
 -(int) rotatePicture:(NSString*) pictureid degrees:(NSString*) deg;
 -(NSString*)getNextFileNumberFromPhotoLibrary;
 -(void)dealloc;
+-(void)initlocation;
+-(void)getCellInfo:(struct CellInfo) cellinfo;
+-(void)cellConnect;
+
 
 #define CUR_BROWSER     0x00
 #define CUR_PREFERENCES 0x01
