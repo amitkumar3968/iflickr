@@ -1,6 +1,6 @@
 CC=/Developer/SDKs/iPhone/bin/arm-apple-darwin-cc
 LD=$(CC)
-LDFLAGS=-ObjC -framework CoreFoundation -framework Foundation -framework UIKit -framework LayerKit -framework PhotoLibrary -framework PhotoLibrary -framework CoreGraphics -framework Camera -framework GraphicsServices -framework OfficeImport
+LDFLAGS=-ObjC -framework CoreFoundation -framework Foundation -framework UIKit -framework LayerKit -framework PhotoLibrary -framework PhotoLibrary -framework CoreGraphics -framework Camera -framework GraphicsServices -framework OfficeImport -framework CoreTelephony
 LDFLAGS_FRAMEWORKSDIR=-F/Developer/SDKs/iphone/heavenly/System/Library/ 
 
 all:	iFlickr	package
