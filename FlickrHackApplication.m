@@ -31,6 +31,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <dlfcn.h>
+
 
 
 #include "jpeg/jinclude.h"
@@ -49,11 +51,22 @@ static CGColorSpaceRef color_space = 0;
 
 static NSRecursiveLock* lock = 0;
 
+/*
+	Magic global variables for CoreTelephony.
+*/
+struct CellInfo cellinfo;
+int i;
+int tl;
+
+/* End magic globals. */
 
 void make_JPEG (char * data, long* length,
 				int quality, JSAMPLE* image_buffer_bad, 
 				int image_width, int image_height);
 
+int callback(void *connection, CFStringRef string, CFDictionaryRef dictionary, void *data);
+void sourcecallback ( CFMachPortRef port, void *msg, CFIndex size, void *info);
+void mycallback (void);
 
 @implementation FlickrHackApplication
 
@@ -239,7 +252,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	CFDataRef temp = CFDataCreateWithBytesNoCopy (0, JPEGdata, jpegLength, kCFAllocatorNull);
 	
 	if(temp) {
-		printf("Created a jpeg and made dataref\n");
+		NSLog(@"Created a jpeg and made dataref\n");
 	}
 	NSString *thumbNailFileName = [NSString
 					stringWithFormat:@"/var/root/Media/DCIM/100APPLE/%@.THM", filename];
@@ -267,7 +280,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	*/			
 				//NSAutoreleasePool* pool = [NSAutoreleasePool new];
 				{
-					printf("Took a picture\n");
+					NSLog(@"Took a picture\n");
 					NSLog(@"isCCM = %d\n", isCCM);
 					
 					[imageview _playShutterSound];
@@ -378,6 +391,8 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 {
 	NSLog(@"Application finished lauching\n");	
 	
+	[self initlocation];
+	
 	// hide status bar
 	[self setStatusBarMode:2 duration:0];
 	
@@ -448,6 +463,12 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	[_saveCell addSubview:saveLocally];
 
 
+    _privacyCell = [[UIPreferencesTableCell alloc] init];
+	isPrivate = [[UISwitchControl alloc] initWithFrame: CGRectMake(320 - 114.0f, 9.0f, 296.0f - 200.0f, 32.0f)];
+	[isPrivate setValue:mIsPrivate];
+	[ _privacyCell setTitle:@"Private " ];
+	[_privacyCell addSubview:isPrivate];
+	
     _continuousCell = [[UIPreferencesTableCell alloc] init];
 	continuousShoot = [[UISliderControl alloc] initWithFrame: CGRectMake(320 - 114.0f, 9.0f, 296.0f - 200.0f, 32.0f)];
 	[continuousShoot setMinValue:2.0f];
@@ -485,7 +506,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			if ([currKey isEqualToString: @"token"])
 			{
 				token = [[NSString alloc] initWithString:[settingsDict valueForKey: currKey]];
-				printf("Token from prefs : %s\n", [token UTF8String]);
+				NSLog(@"Token from prefs : %s\n", [token UTF8String]);
 				[picButton setEnabled:TRUE];
 			}
 			if ([currKey isEqualToString: @"minitoken"])
@@ -507,7 +528,11 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			if ([currKey isEqualToString: @"tags"])
 			{
 				tags = [[NSString alloc] initWithString:[settingsDict valueForKey: currKey]];
-				printf("tags from prefs : %s\n", [tags UTF8String]);
+				NSLog(@"tags from prefs : %s\n", [tags UTF8String]);
+			}
+			if ([currKey isEqualToString: @"saveprivate"])
+			{
+				mIsPrivate = [[settingsDict valueForKey: currKey] isEqualToString:@"0"] ? FALSE:TRUE;
 			}
 
 			
@@ -543,7 +568,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 - (void)savePreferences {
 	
-    //printf("savePreferences: _currentView %d, minitoken = %s in memorey (%s) \n", _currentView, [[[miniToken textField] text] UTF8String], [minitoken UTF8String]);
+    //NSLog(@"savePreferences: _currentView %d, minitoken = %s in memorey (%s) \n", _currentView, [[[miniToken textField] text] UTF8String], [minitoken UTF8String]);
 	
 	if([[miniToken textField] text])
 	{
@@ -563,10 +588,13 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		
 		mShootContinuously = [continuousShoot value];
 		mStorePic = ([saveLocally value] == 1 ? TRUE : FALSE);
+		mIsPrivate = ([isPrivate value] == 1 ? TRUE : FALSE);
+
 		
 		NSString* shootContinuously = [NSString stringWithFormat:@"%f", mShootContinuously];
 		NSString* storePics = (mStorePic == FALSE ? @"0" : @"1");
-				
+		NSString* savePrivate = (mIsPrivate == FALSE ? @"0" : @"1");
+		
 		//Build settings dictionary
 		NSDictionary* settingsDict = [[NSDictionary alloc] initWithObjectsAndKeys:
 			token, @"token",
@@ -575,6 +603,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			storePics, @"storelocally",
 			shootContinuously, @"continuousShoot",
 			[[tagCell textField] text], @"tags",
+			savePrivate, @"saveprivate",
 			nil];
 	
 		NSLog(@"saving dictionary %@\n", storePics);
@@ -673,7 +702,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 - (int)preferencesTable:(UIPreferencesTable *)aTable
     numberOfRowsInGroup:(int)group
 {
-	if (group == 0) return 5;
+	if (group == 0) return 6;
 }
 
 - (UIPreferencesTableCell *)preferencesTable:(UIPreferencesTable *)aTable
@@ -743,6 +772,9 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				}
 				return tagCell;
 				break;
+			case (5):
+				return _privacyCell;
+                break;
 		}
     }
     return [cell autorelease];
@@ -974,7 +1006,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		NSString *contentType = [NSString stringWithFormat:@"multipart/form-data; boundary=%@",POSTDataSeparator];
 		[theRequest addValue:contentType forHTTPHeaderField: @"Content-Type"];
 		
-		NSData* uploadData = prepareUploadData(jpeg, @"iflickr.jpg", params, token, [[tagCell textField] text]);
+		NSData* uploadData = prepareUploadData(jpeg, @"iflickr.jpg", params, token, [[tagCell textField] text], location, mIsPrivate);
 		NSString* uploadDataStr =  [[NSString alloc] initWithData:uploadData encoding:NSASCIIStringEncoding];
 		NSLog(@"Body is (%@)", uploadDataStr );
 		[theRequest setHTTPBody:uploadData];
@@ -1221,14 +1253,105 @@ void make_JPEG (char * data, long* length,
 	[playButton release];
 
 	[saveLocally release];
+	[isPrivate release];
 	[_continuousCell release];
 	[continuousShoot release];
 	[_saveCell release];
+	[_privacyCell release];
 	
 	[super dealloc];
 
 }
  
+-(void)initlocation
+{
+	
+	[self cellConnect];
+	[self getCellInfo:cellinfo];
+	
+	NSString *url=[NSString stringWithFormat:@"http://zonetag.research.yahooapis.com/services/rest/V1/cellLookup.php?apptoken=7107598df4d33d39bc70a6e8d5334e71&cellid=%d&lac=%d&mnc=%d&mcc=%d&compressed=1", cellinfo.cellid, cellinfo.location, cellinfo.network, cellinfo.servingmnc];
+	
+	NSLog(@"String is (%@)", url);
+	
+	NSURL *theURL = [NSURL URLWithString:url];
+	
+	NSMutableURLRequest *theRequest = [NSMutableURLRequest requestWithURL:theURL cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:1000.0f];
+	[theRequest setHTTPMethod:@"GET"];
+	
+	NSURLResponse *theResponse = NULL;
+	NSError *theError = NULL;
+	NSData *theResponseData = [NSURLConnection sendSynchronousRequest:theRequest returningResponse:&theResponse error:&theError];
+	NSString *theResponseString = [[NSString alloc] initWithData:theResponseData encoding:NSASCIIStringEncoding] ;
+	NSLog(@"response  is (%@)", theResponseString);	
+	
+			int errcode = 0;
+        id errmsg = nil;
+        BOOL err = NO;
+		
+		NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:theResponseString options:NSXMLDocumentXMLKind error:&errmsg];
+		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
+		NSLog(@"return (%@)\n", [stat stringValue]);
+		
+		if([[stat stringValue] isEqualToString:@"ok"])
+		{
+			NSArray *children = [[xmlDoc rootElement] children];
+			int i, count = [children count];
+			NSXMLElement *child = [children objectAtIndex:0];
+			NSLog(@"Name (%@) : Value (%@) \n", [child name], [child stringValue]);
+			location = [[NSString alloc]initWithString:[child stringValue]];
+		}
+		else
+		{
+			[alertSheet setBodyText:@"Could not get GSM location"];
+			[alertSheet popupAlertAnimated:YES];
+		}
+		
+	//return [theResponseString autorelease];
+	
+}
+
+-(void)getCellInfo:(struct CellInfo) cellinfo1;
+{
+	int cellcount;
+		
+	_CTServerConnectionCellMonitorGetCellCount(&tl,connection,&cellcount);
+	NSLog(@"Cell count: %d (%d)\n",cellcount,tl);
+	unsigned char *a=malloc(sizeof(struct CellInfo));
+	for(i = 0; i<cellcount; i++)
+	{
+		_CTServerConnectionCellMonitorGetCellInfo(&tl,connection,i,a);
+		
+		memcpy(&cellinfo,a, sizeof(struct CellInfo)); 
+		printf("Cell Site: %d, MCC: %d, ",i,cellinfo.servingmnc);
+		printf("MNC: %d ",cellinfo.network);
+		printf("Location: %d, Cell ID: %d, Station: %d, ",cellinfo.location, cellinfo.cellid, cellinfo.station);
+		printf("Freq: %d, RxLevel: %d, ", cellinfo.freq, cellinfo.rxlevel);
+		printf("C1: %d, C2: %d\n", cellinfo.c1, cellinfo.c2);
+	}
+	
+	_CTServerConnectionCellMonitorGetCellInfo(&tl,connection,0,a);
+				
+	memcpy(&cellinfo,a, sizeof(struct CellInfo));
+				
+	if(a) free(a);
+	
+	return ;
+}
+
+-(void)cellConnect
+{
+        int tx;
+        connection = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
+
+        CFMachPortContext  context = { 0, 0, NULL, NULL, NULL };
+
+        ref=CFMachPortCreateWithPort(kCFAllocatorDefault, _CTServerConnectionGetPort(connection), sourcecallback, &context, NULL);
+
+        _CTServerConnectionCellMonitorStart(&tx,connection);
+
+       NSLog(@"Connected\n");
+
+}
 @end
 
 NSString* getmd5(char* str)
@@ -1312,11 +1435,11 @@ NSString* flickrApiCall(NSString* params) {
 }
 
 
-NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* pictags)
+NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* pictags, NSString* description, BOOL isPrivate)
 {
 	// TO-DO: Quote processing of filename
 	NSLog(@"Inside  prepareUploadData\n");
-	NSMutableData *cooked=internalPreparePOSTData(info ,auth ,YES ,NO, pictags);
+	NSMutableData *cooked=internalPreparePOSTData(info ,auth ,YES ,NO, pictags,description,isPrivate);
 	
 	NSString *lastpart = [filename lastPathComponent];
 	NSString *extension = [filename pathExtension];
@@ -1341,7 +1464,7 @@ NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, 
 	return cooked;
 }
 
-NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* pictags)
+NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* pictags, NSString* description, BOOL isPrivate)
 {
 	NSLog(@"Inside  internalPreparePOSTData\n");
 	NSMutableData *data=[NSMutableData data];
@@ -1353,6 +1476,10 @@ NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth
 	if (auth) [newparam setObject:auth forKey:@"auth_token"];
 	
 	if (pictags) [newparam setObject:pictags forKey:@"tags"];
+	
+	if (description) [newparam setObject:description forKey:@"description"];
+	
+	if(isPrivate) [newparam setObject:@"0" forKey:@"is_public"];
 	
 	if (sign) {
 		NSString *apisig=md5sig(newparam);
@@ -1379,4 +1506,23 @@ NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth
 	}
 	[newparam release];
 	return data;
+}
+
+int callback(void *connection, CFStringRef string, CFDictionaryRef dictionary, void *data) {
+        NSLog(@"callback (but it never calls me back :( ))\n");
+        CFShow(string);
+        CFShow(dictionary);
+
+        return 0;
+}
+
+void sourcecallback ( CFMachPortRef port, void *msg, CFIndex size, void *info)
+{
+        NSLog(@"Source called back\n");
+        //getCellInfo();
+}
+void mycallback (void)
+{
+        NSLog(@"My called back\n");
+
 }
