@@ -667,7 +667,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
     UITextLabel *versionText = [[UITextLabel alloc] initWithFrame:
 		CGRectMake(15.0f, 300.0f, 100.0f, 20.0f)];
-    [ versionText setText:@"0.0.4"];
+    [ versionText setText:@"0.0.5"];
     [ versionText setBackgroundColor:
 		CGColorCreate(colorSpace, transparentComponents)];
     [ pref addSubview:versionText ];
