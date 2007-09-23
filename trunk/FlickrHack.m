@@ -22,8 +22,11 @@
 
 int main(int argc, char **argv)
 {
-    NSXMLElement* xml = [NSClassFromString(@"NSXMLElement") alloc];
-
+	char *val_buf, path_buf[155];
+	val_buf = getenv("HOME");
+	sprintf(path_buf,"%s/Library/Logs/iFlickr.log",val_buf);
+	freopen(path_buf,"a",stdout);
+	
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     return UIApplicationMain(argc, argv, [FlickrHackApplication class]);
 }
