@@ -969,7 +969,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		
 		if ([self uploadWithData:jpeg withTags:tags withOrientation:orientation withLocation:location isPrivate:mIsPrivate])
 		{
-			
+	
 			NSFileManager *fileManager = [NSFileManager defaultManager];
 			if(![fileManager removeFileAtPath:imageFileName handler:nil]) 
 			{
@@ -979,6 +979,27 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 			{
 				NSLog(@"Could not remove file %@", settingFileName);
 			}
+			[lock lock];
+			uploadQSize--;
+			[self setApplicationBadge:[NSString stringWithFormat:@"%d", uploadQSize]];
+			if(uploadQSize <= 0)
+			{
+				NSLog(@"Stoping animation\n");
+				[status removeFromSuperview];
+				[progress stopAnimation];
+				[self removeApplicationBadge];
+				if([self isSuspended] && !isCachingNow)
+				{
+					[self terminateWithSuccess];
+				}
+				
+			}
+			if(uploadQSize > 0)
+			{
+				[status setText:[NSString stringWithFormat:@"Sending %d pics", uploadQSize]];
+			}
+			[lock unlock];
+			
 			retval = 1;
 		}
 		else
@@ -1128,26 +1149,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				break;
 		}
 		
-		[lock lock];
-		uploadQSize--;
-		[self setApplicationBadge:[NSString stringWithFormat:@"%d", uploadQSize]];
-		if(uploadQSize <= 0)
-		{
-			NSLog(@"Stoping animation\n");
-			[status removeFromSuperview];
-			[progress stopAnimation];
-			[self removeApplicationBadge];
-			if([self isSuspended] && !isCachingNow)
-			{
-				[self terminateWithSuccess];
-			}
-			
-		}
-		if(uploadQSize > 0)
-		{
-			[status setText:[NSString stringWithFormat:@"Sending %d pics", uploadQSize]];
-		}
-		[lock unlock];
+
 		[theResponseString release];
 		[params release];
 	}
