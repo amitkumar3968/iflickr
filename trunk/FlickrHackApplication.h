@@ -46,13 +46,8 @@
 #define IMAGE_HEIGHT 75
 
 // Utility Functions.
-
-NSString* getFullToken(NSString* miniToken);
-NSString* signatureForCall(NSDictionary* parameters) ;
+NSString* getmd5(char* str);
 NSString* md5sig(NSDictionary* parameters) ;
-NSMutableData* internalPreparePOSTData(NSDictionary* parameters, NSString*  auth ,BOOL sign ,BOOL endmark, NSString* tags,NSString* description, BOOL isPrivate);
-NSData* prepareUploadData(NSData* data, NSString* filename ,NSDictionary* info, NSString* auth, NSString* tags,NSString* description, BOOL isPrivate);
-NSString* flickrApiCall(NSString* params);
 
 typedef struct __CFMachPort *CFMachPortRef;
 
@@ -63,17 +58,19 @@ typedef struct __CFMachPort *CFMachPortRef;
 	NSString   *minitoken;
 	NSString* userid;
 	NSString* tags;
-	
+	NSString* location;
+
 	int uploadQSize;	
 	BOOL mLandscape;
 	BOOL mStorePic;
 	BOOL mIsPrivate;
-	float mShootContinuously;
-	BOOL isCCM;
+	BOOL mGeoTag;
+	BOOL isCachingNow;
 	
 	int mCurrentRotation;
 	int mDeviceRotation;
 	
+	// Views
 	CameraController* camController;
 	CameraView* imageview;
 	UIPreferencesTable *_pref;		
@@ -85,59 +82,58 @@ typedef struct __CFMachPort *CFMachPortRef;
 	UIView *mainView;	
 	UITextLabel* status;
 	UIAlertSheet* alertSheet;
+	
+	// Buttons
 	UIPushButton* picButton;
-	UIPushButton* stopButton;
-	UIPushButton* playButton;
 	UIWindow *window;
-
-
+	
+	// Controls
 	UISwitchControl* saveLocally;
 	UISwitchControl* isPrivate;
-
-	UIPreferencesTableCell* _continuousCell;
-	UISliderControl* continuousShoot;
+	UISwitchControl* geotag;
+		
+	// UI Cells
 	UIPreferencesTableCell* _saveCell;
 	UIPreferencesTableCell* _privacyCell;
+	UIPreferencesTableCell* _geoTagCell;
 	
-	//int tl;
+	// Location stuff.
 	struct CTServerConnection *connection;
 	CFMachPortRef ref;
 	CFRunLoopSourceRef rlref;
 	CFRunLoopRef currentRunLoop;
 	void    *handle;
-	//struct CellInfo cellinfo;
-	NSString* location;
-
+	
 }
 
--(void)takePicture:(id)sender;
--(UIPreferencesTable *)createPrefPane;
--(UINavigationBar *)createNavBar;
-- (int)numberOfGroupsInPreferencesTable:(UIPreferencesTable *)aTable;
-- (int)preferencesTable:(UIPreferencesTable *)aTable numberOfRowsInGroup:(int)group;
-- (UIPreferencesTableCell *)preferencesTable:(UIPreferencesTable *)aTable cellForGroup:(int)group;
-- (UIPreferencesTableCell *)preferencesTable:(UIPreferencesTable *)aTable cellForRow:(int)row inGroup:(int)group;
-- (float)preferencesTable:(UIPreferencesTable *)aTable heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed;
-- (BOOL)preferencesTable:(UIPreferencesTable *)aTable isLabelGroup:(int)group;
-- (void)setNavBar;
-- (void)savePreferences;
-- (void)loadPreferences;
+- (void) takePicture:(id)sender;
+- (UIPreferencesTable *) createPrefPane;
+- (UINavigationBar *) createNavBar;
+- (int) numberOfGroupsInPreferencesTable:(UIPreferencesTable *)aTable;
+- (int) preferencesTable:(UIPreferencesTable *)aTable numberOfRowsInGroup:(int)group;
+- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)aTable cellForGroup:(int)group;
+- (UIPreferencesTableCell *) preferencesTable:(UIPreferencesTable *)aTable cellForRow:(int)row inGroup:(int)group;
+- (float) preferencesTable:(UIPreferencesTable *)aTable heightForRow:(int)row inGroup:(int)group withProposedHeight:(float)proposed;
+- (BOOL) preferencesTable:(UIPreferencesTable *)aTable isLabelGroup:(int)group;
+- (void) setNavBar;
+- (void) savePreferences;
+- (void) loadPreferences;
 - (NSString*) getFullToken:(NSString*) miniToken;
-- (void)getFlickrData:(NSXMLElement*) e;
+- (void) getFlickrData:(NSXMLElement*) e;
 - (int) flickrUploadPic : (NSData*) jpeg;
--(void)compressImage:(CGImageRef)jpeg withFilename:(NSString*)filename;
-- (void) handleSlider: (id) whatever;
--(void)takeContinuousPicPicture:(id)sender;
-- (BOOL) shouldShoot;
--(void)stopTakePicture:(id)sender;
--(void)startTakePicture:(id)sender;
--(int) rotatePicture:(NSString*) pictureid degrees:(NSString*) deg;
--(NSString*)getNextFileNumberFromPhotoLibrary;
--(void)dealloc;
--(void)initlocation;
--(void)getCellInfo:(struct CellInfo) cellinfo;
--(void)cellConnect;
-
+- (void) compressImage:(CGImageRef)jpeg withFilename:(NSString*)filename;
+- (int) rotatePicture:(NSString*) pictureid degrees:(NSString*) deg;
+- (NSString*) getNextFileNumberFromPhotoLibrary;
+- (void) dealloc;
+- (void) initlocation;
+- (void) getCellInfo:(struct CellInfo) cellinfo;
+- (void) cellConnect;
+//- (NSMutableData*) internalPreparePOSTData:(NSDictionary*) parameters withAuth:(NSString*)auth withSign:(BOOL)sign withEnd:(BOOL)endmark withTags:(NSString*) tags;
+//- (NSData*) prepareUploadData:(NSData*) data  withName:(NSString*) filename withInfo:(NSDictionary*) info  withAuth:(NSString*) auth;
+- (NSString*) flickrApiCall:(NSString*) params;
+- (NSString*) signatureForCall:(NSDictionary*) parameters ;
+-(int) uploadWithData:(NSData*) jpeg withTags:(NSString*)ptags withOrientation:(int)orientation withLocation:(NSString*)plocation isPrivate:(BOOL)privacy;
+-(void) sendCachedPics;
 
 #define CUR_BROWSER     0x00
 #define CUR_PREFERENCES 0x01
