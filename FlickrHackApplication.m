@@ -352,6 +352,10 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		CGRectMake(0, 240, 320, 240) ];
 	[alertSheet setDelegate:self];
 	[alertSheet addButtonWithTitle:@"OK" ];
+
+	authorizeSheet = [[UIAlertSheet alloc]initWithFrame: 
+		CGRectMake(0, 240, 320, 240) ];
+	[authorizeSheet setDelegate:self];
 	
 	_pref    = [ self createPrefPane ];
 	_navBar = [ self createNavBar ];
@@ -409,9 +413,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	tagCell = [[UIPreferencesTextTableCell alloc]  init];
 	[ tagCell setTitle:@"Tags" ];
 	[[tagCell textField] setText:tags];
-
-	miniToken = [[UIPreferencesTextTableCell alloc]  initWithFrame:CGRectMake(170.0f, 100.0f, 120.0f, 20.0f)];
-	[ miniToken setTitle:@"Minitoken" ];
 	
 	NSLog(@"Token from prefs : %s\n", [token UTF8String]);
 	
@@ -422,10 +423,30 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 }
 
-- (void)loadPreferences {
+- (void) loadPreferences
+{
+	NSLog(@"Loading preferences");
+	
 	if ([[NSFileManager defaultManager] isReadableFileAtPath: PREF_FILE])
 	{
 		NSDictionary* settingsDict = [NSDictionary dictionaryWithContentsOfFile: PREF_FILE];
+		
+		NSString* pfrob = [settingsDict valueForKey:@"frob"];
+		NSString* ptoken = [settingsDict valueForKey:@"token"];
+		
+		if(pfrob && !ptoken)
+		{
+			if([self getTokenWithFrob:pfrob])
+			{
+				[picButton setEnabled:TRUE];
+			}
+			else 
+			{
+				[[NSFileManager defaultManager] removeFileAtPath: PREF_FILE handler:nil];
+				[self terminateWithSuccess];
+				return;
+			}
+		}
 		NSEnumerator* enumerator = [settingsDict keyEnumerator];
 		NSString* currKey;
 		while (currKey = [enumerator nextObject])
@@ -435,10 +456,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				token = [[NSString alloc] initWithString:[settingsDict valueForKey: currKey]];
 				NSLog(@"Token from prefs : %s\n", [token UTF8String]);
 				[picButton setEnabled:TRUE];
-			}
-			if ([currKey isEqualToString: @"minitoken"])
-			{
-				minitoken = [[NSString alloc] initWithString:[settingsDict valueForKey: currKey]];
 			}
 			if ([currKey isEqualToString: @"userid"])
 			{
@@ -464,27 +481,21 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 						
 		}
 		[_pref reloadData];
+	} 
+	else 
+	{
+		[authorizeSheet setBodyText:@"You are not authorized. Click ok to Authorize with flickr. You will be directed to a safari window, where you can enter your login and password. Please wait.."];
+		[authorizeSheet addButtonWithTitle:@"Authorize with Fickr" ];
+		[authorizeSheet popupAlertAnimated:YES];
 	}
 }
 
 
 
 - (void)savePreferences {
-	
-    //NSLog(@"savePreferences: _currentView %d, minitoken = %s in memorey (%s) \n", _currentView, [[[miniToken textField] text] UTF8String], [minitoken UTF8String]);
-	
-	if([[miniToken textField] text])
+	NSLog(@"savePreferences");
+	if(token)
 	{
-		NSString* s = [[miniToken textField] text];
-		
-		if(![s isEqualToString:minitoken])
-		{
-			NSLog(@"%@ == %@\n", s, minitoken);
-			//return;
-			
-			[self getFullToken:[[miniToken textField] text]];
-			
-		}
 		
 		NSLog(@"Store pics %f\n", [saveLocally value]);
 		
@@ -505,7 +516,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		//Build settings dictionary
 		NSDictionary* settingsDict = [[NSDictionary alloc] initWithObjectsAndKeys:
 			token, @"token",
-			[[miniToken textField] text], @"minitoken",
 			userid, @"userid",
 			storePics, @"storelocally",
 			[[tagCell textField] text], @"tags",
@@ -529,12 +539,172 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	return;
 }
 
+-(void) getFrob
+{
+	NSString* method=@"flickr.auth.getFrob";
+	
+	NSMutableDictionary *newparam=[[NSMutableDictionary alloc] init];
+	[newparam setObject:method forKey:@"method"];
+	[newparam setObject:@API_KEY forKey:@"api_key"];
+	
+	[alertSheet setBodyText:@"Now you will be directed to a safari window, where you can enter your login and password. Please wait.."];
+	[alertSheet popupAlertAnimated:YES];
+	
+	NSString* param = [self signatureForCall:newparam];
+	NSLog(@"%@", param);
+	
+	NSString* rsp = [self flickrApiCall:param];		
+	NSLog(@"Response is (%@)\n", rsp);
+	if(rsp) 
+	{
+		int errcode = 0;
+        id errmsg = nil;
+        BOOL err = NO;
+		
+        NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:rsp options:NSXMLDocumentXMLKind error:&errmsg];
+		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
+		NSLog(@"return (%@)\n", [stat stringValue]);
+		
+		if([[stat stringValue] isEqualToString:@"ok"])
+		{
+			NSXMLNode *frobNode = [[[xmlDoc rootElement] children] objectAtIndex:0];
+			frob = [frobNode stringValue];
+			if(frob)
+			{
+				NSLog(@"Frob: %@", frob);
+				
+				NSDictionary* settingsDict = [[NSDictionary alloc] initWithObjectsAndKeys:
+					frob, @"frob",
+					nil];
+				
+				NSLog(@"saving dictionary");
+				
+				//Seralize settings dictionary
+				NSString* error;
+				NSData* rawPList = [NSPropertyListSerialization dataFromPropertyList: settingsDict		
+																			  format: NSPropertyListXMLFormat_v1_0
+																	errorDescription: &error];
+				
+				//Write settings plist file
+				[rawPList writeToFile: PREF_FILE atomically: YES];
+				[settingsDict release];
+
+		
+				[self authorizeFrob:frob];
+				
+			}
+		}
+		else
+		{
+			[alertSheet setBodyText:[stat stringValue]];
+			[alertSheet popupAlertAnimated:YES];
+		}
+		
+		
+		[xmlDoc release];
+	}
+	
+	[newparam release];
+	//return token;
+}
+
+-(int)getTokenWithFrob:(NSString*) pfrob
+{
+	
+	NSString* method=@"flickr.auth.getToken";
+	
+	NSMutableDictionary *newparam=[[NSMutableDictionary alloc] init];
+	[newparam setObject:method forKey:@"method"];
+	[newparam setObject:@API_KEY forKey:@"api_key"];
+	[newparam setObject:pfrob forKey:@"frob"];
+	
+	NSString* param = [self signatureForCall:newparam];
+	NSLog(@"%@", param);
+	
+	NSString* rsp = [self flickrApiCall:param];		
+	NSLog(@"Response is (%@)\n", rsp);
+	if(rsp) 
+	{
+		int errcode = 0;
+        id errmsg = nil;
+        BOOL err = NO;
+		
+        NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:rsp options:NSXMLDocumentXMLKind error:&errmsg];
+		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
+		NSLog(@"return (%@)\n", [stat stringValue]);
+		
+		if([[stat stringValue] isEqualToString:@"ok"])
+		{
+			//minitoken = mtoken;
+		}
+		else
+		{
+			[alertSheet setBodyText:[stat stringValue]];
+			[alertSheet popupAlertAnimated:YES];
+			return 0;
+		}
+		
+		[self getFlickrData:[xmlDoc rootElement]];
+		//Build settings dictionary
+		NSDictionary* settingsDict = [[NSDictionary alloc] initWithObjectsAndKeys:
+			token, @"token",
+			userid, @"userid",
+			@"0", @"storelocally",
+			@"", @"tags",
+			@"1", @"saveprivate",
+			@"1", @"geotag",
+			nil];
+			NSLog(@"saving dictionary");
+		
+		//Seralize settings dictionary
+		NSString* error;
+		NSData* rawPList = [NSPropertyListSerialization dataFromPropertyList: settingsDict		
+																	  format: NSPropertyListXMLFormat_v1_0
+															errorDescription: &error];
+		
+		//Write settings plist file
+		[rawPList writeToFile: PREF_FILE atomically: YES];
+				
+		[xmlDoc release];
+	}
+	[newparam release];
+	return 1;
+
+}
+
+-(int)authorizeFrob:(NSString*) pfrob
+{
+	NSString* baseurl = [NSString stringWithFormat:@"http://flickr.com/services/auth/?"] ; //api_key=%@&perms=write&frob=%@" , API_KEY, pfrob];
+	
+	NSMutableDictionary *newparam=[[NSMutableDictionary alloc] init];
+	[newparam setObject:pfrob forKey:@"frob"];
+	[newparam setObject:@API_KEY forKey:@"api_key"];
+	[newparam setObject:@"write" forKey:@"perms"];
+	
+	NSString* signedurl = [self signatureForCall:newparam];
+	
+	NSLog(@"Url : %@%@", baseurl, signedurl);
+	
+	NSURL *url = [[NSURL alloc] initWithString:[NSString stringWithFormat:@"%@%@", baseurl, signedurl]];
+	[self openURL:url];	
+	[url release];	
+	
+	[newparam release];
+	return 1;
+
+}
+
 - (void)alertSheet:(UIAlertSheet*)sheet buttonClicked:(int)button
 {
-	if ( button == 1 )
-		NSLog(@"Yes");
+	if ( button == 1 && sheet == authorizeSheet)
+	{
+		NSLog(@"Authorize");
+		[self getFrob];
+
+	}
 	else if ( button == 2 )
-		NSLog(@"No");
+	{
+	}
 	
 	[sheet dismiss];
 }
@@ -588,7 +758,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 - (int)preferencesTable:(UIPreferencesTable *)aTable
     numberOfRowsInGroup:(int)group
 {
-	if (group == 0) return 6;
+	if (group == 0) return 5;
 }
 
 - (UIPreferencesTableCell *)preferencesTable:(UIPreferencesTable *)aTable
@@ -627,24 +797,14 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
     [ cell setEnabled: YES ];
     if (group == 0) {
         switch (row) {
-            case (0):
-				if(!minitoken)
-				{
-					[[miniToken textField] setText:@"Enter minitoken, click on Auth"];
-				}
-				else 
-				{
-					[[miniToken textField] setText:minitoken];
-				}
-				return miniToken ;
-				break;
-			case (1):
+
+			case (0):
                 [ cell setTitle:[NSString stringWithFormat:@"User : %@", userid]];
                 break;
-            case (2):
+            case (1):
 				return _saveCell;
                 break;
-			case (3):		
+			case (2):		
 				if(!tags)
 				{
 					[[tagCell textField] setText:@""];
@@ -655,10 +815,10 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				}
 				return tagCell;
 				break;
-			case (4):
+			case (3):
 				return _privacyCell;
                 break;
-			case (5):
+			case (4):
 				return _geoTagCell;
                 break;
 		}
@@ -728,12 +888,16 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
                     break;
 				case CUR_PREFERENCES:
 				{
+					[self getFrob];
+					break;
+					/*
 					NSLog(@"Opening flickr url\n");
 					NSURL *url;
 					url = [[NSURL alloc] initWithString:@"http://www.flickr.com/auth-72157601777151481"];
 					[self openURL:url];	
 					[url release];	
 					break;
+					*/
 				}
 					
             }
@@ -856,7 +1020,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		
 		if([[stat stringValue] isEqualToString:@"ok"])
 		{
-			minitoken = mtoken;
+			//minitoken = mtoken;
 		}
 		else
 		{
@@ -873,6 +1037,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 -(void) sendCachedPics
 {
+	if(!token) return;
 	NSAutoreleasePool* pool = [NSAutoreleasePool new];
 	{
 		
@@ -1290,14 +1455,12 @@ void make_JPEG (char * data, long* length,
 -(void)dealloc
 {
 	[token release];
-	[minitoken release];
 	[userid release];
 	[tags release];
 	
 	[imageview release];
 	[_pref release];		
 	[_navBar release];
-	[miniToken release];
 	[tagCell release];
 	[_transitionView release];
 	[progress release];
