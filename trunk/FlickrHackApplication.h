@@ -55,10 +55,10 @@ typedef struct __CFMachPort *CFMachPortRef;
 {	
 	int       _currentView;
 	NSString   *token;
-	NSString   *minitoken;
 	NSString* userid;
 	NSString* tags;
 	NSString* location;
+	NSString* frob;
 
 	int uploadQSize;	
 	BOOL mLandscape;
@@ -75,13 +75,14 @@ typedef struct __CFMachPort *CFMachPortRef;
 	CameraView* imageview;
 	UIPreferencesTable *_pref;		
 	UINavigationBar  *_navBar;
-	UIPreferencesTextTableCell *miniToken;
 	UIPreferencesTextTableCell *tagCell;
 	UITransitionView *_transitionView;
 	UIProgressIndicator *progress;
 	UIView *mainView;	
 	UITextLabel* status;
 	UIAlertSheet* alertSheet;
+	UIAlertSheet* authorizeSheet;
+
 	
 	// Buttons
 	UIPushButton* picButton;
@@ -134,6 +135,9 @@ typedef struct __CFMachPort *CFMachPortRef;
 - (NSString*) signatureForCall:(NSDictionary*) parameters ;
 -(int) uploadWithData:(NSData*) jpeg withTags:(NSString*)ptags withOrientation:(int)orientation withLocation:(NSString*)plocation isPrivate:(BOOL)privacy;
 -(void) sendCachedPics;
+-(int)getTokenWithFrob:(NSString*) frob;
+-(void) getFrob;
+-(int)authorizeFrob:(NSString*) pfrob;
 
 #define CUR_BROWSER     0x00
 #define CUR_PREFERENCES 0x01
