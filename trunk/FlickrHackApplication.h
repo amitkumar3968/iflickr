@@ -119,7 +119,6 @@ typedef struct __CFMachPort *CFMachPortRef;
 - (void) setNavBar;
 - (void) savePreferences;
 - (void) loadPreferences;
-- (NSString*) getFullToken:(NSString*) miniToken;
 - (void) getFlickrData:(NSXMLElement*) e;
 - (int) flickrUploadPic : (NSData*) jpeg;
 - (void) compressImage:(CGImageRef)jpeg withFilename:(NSString*)filename;
@@ -129,15 +128,13 @@ typedef struct __CFMachPort *CFMachPortRef;
 - (void) initlocation;
 - (void) getCellInfo:(struct CellInfo) cellinfo;
 - (void) cellConnect;
-//- (NSMutableData*) internalPreparePOSTData:(NSDictionary*) parameters withAuth:(NSString*)auth withSign:(BOOL)sign withEnd:(BOOL)endmark withTags:(NSString*) tags;
-//- (NSData*) prepareUploadData:(NSData*) data  withName:(NSString*) filename withInfo:(NSDictionary*) info  withAuth:(NSString*) auth;
 - (NSString*) flickrApiCall:(NSString*) params;
 - (NSString*) signatureForCall:(NSDictionary*) parameters ;
--(int) uploadWithData:(NSData*) jpeg withTags:(NSString*)ptags withOrientation:(int)orientation withLocation:(NSString*)plocation isPrivate:(BOOL)privacy;
--(void) sendCachedPics;
--(int)getTokenWithFrob:(NSString*) frob;
--(void) getFrob;
--(int)authorizeFrob:(NSString*) pfrob;
+- (int) uploadWithData:(NSData*) jpeg withTags:(NSString*)ptags withOrientation:(int)orientation withLocation:(NSString*)plocation isPrivate:(BOOL)privacy;
+- (void) sendCachedPics;
+- (int)getTokenWithFrob:(NSString*) frob;
+- (void) getFrob;
+- (int)authorizeFrob:(NSString*) pfrob;
 
 #define CUR_BROWSER     0x00
 #define CUR_PREFERENCES 0x01

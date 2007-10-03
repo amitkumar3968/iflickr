@@ -78,7 +78,6 @@ void mycallback (void);
 }
 
 - (void) applicationResume:(struct __GSEvent *) event {
-	//[self setApplicationBadge:@"resumed"];
 }
 
 - (BOOL) applicationIsReadyToSuspend {
@@ -106,48 +105,38 @@ void mycallback (void);
 
 - (void)deviceOrientationChanged:(struct __GSEvent *)fp8
 {
-	/*
-	int currentRotation = [UIHardware deviceOrientation:YES];
-	NSString* str = [NSString stringWithFormat:@"%d", currentRotation];
-				[alertSheet setBodyText:str];
-	[alertSheet popupAlertAnimated:YES];
-	*/
 }
 
 -(void)cameraController:(id)sender tookPicture:(UIImage*)picture withPreview:(UIImage*)preview jpegData:(NSData*)jpeg imageProperties:(NSDictionary *)exif
 {
-	//NSAutoreleasePool* pool = [NSAutoreleasePool new];
+	
+	NSLog(@"Took a picture callback\n");		
+	if (preview && [preview imageRef])
 	{
-		NSLog(@"Took a picture callback\n");		
-		if (preview && [preview imageRef])
+		NSLog(@"Token from prefs : %s\n", [token UTF8String]);
+		[lock lock];
+		uploadQSize++;
+		[lock unlock];
+		
+		if(![_navBar containsView:status])
 		{
-			NSLog(@"Token from prefs : %s\n", [token UTF8String]);
-			[lock lock];
-			uploadQSize++;
-			[lock unlock];
+			[_navBar addSubview:status];
+		}
+		[status setText:[NSString stringWithFormat:@"Sending %d pics", uploadQSize]];
+		[progress startAnimation];
+		[NSThread detachNewThreadSelector:@selector(flickrUploadPic:) toTarget:self withObject:jpeg];
+		
+		if(mStorePic)
+		{				
+			NSString* fileName = [self getNextFileNumberFromPhotoLibrary];
 			
-			if(![_navBar containsView:status])
-			{
-				[_navBar addSubview:status];
-			}
-			[status setText:[NSString stringWithFormat:@"Sending %d pics", uploadQSize]];
-			[progress startAnimation];
-			[NSThread detachNewThreadSelector:@selector(flickrUploadPic:) toTarget:self withObject:jpeg];
-			//[camController startPreview];
+			[self compressImage:(void*)CGImageCreateCopy([preview imageRef]) withFilename:fileName ];
 			
-			if(mStorePic)
-			{				
-				NSString* fileName = [self getNextFileNumberFromPhotoLibrary];
-				
-				[self compressImage:(void*)CGImageCreateCopy([preview imageRef]) withFilename:fileName ];
-				
-				NSString *imageFileName = [NSString stringWithFormat:@"/var/root/Media/DCIM/100APPLE/%@.JPG", fileName];
-				
-				[(NSData*)jpeg writeToFile:imageFileName atomically:TRUE];
-			}
-		}		
-	}
-	//[pool release];
+			NSString *imageFileName = [NSString stringWithFormat:@"/var/root/Media/DCIM/100APPLE/%@.JPG", fileName];
+			
+			[(NSData*)jpeg writeToFile:imageFileName atomically:TRUE];
+		}
+	}		
 }
 
 -(NSString*)getNextFileNumberFromPhotoLibrary
@@ -161,12 +150,12 @@ void mycallback (void);
 	NSString *file;
 	NSDirectoryEnumerator *dirEnum = [[NSFileManager defaultManager] enumeratorAtPath: DCIM_PATH];
 	NSMutableArray *sortedArray = [[NSMutableArray alloc] init];
+	[sortedArray addObject:@"IMG_000"];
 	
 	while (file = [dirEnum nextObject]) {
 		char *fn = [file cStringUsingEncoding: NSASCIIStringEncoding];
 		if (!strcasecmp(fn + (strlen(fn)-4), ".JPG"))
 		{
-			//NSLog(@"Got a file %@\n", file);
 			[sortedArray addObject:file];
 		}
 	}
@@ -249,7 +238,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	
 	CGImageRelease (jpeg);
 	
-	//[self setText:[NSString stringWithFormat:@"length: %d", jpegLength]]; 
 	
 	CFDataRef temp = CFDataCreateWithBytesNoCopy (0, JPEGdata, jpegLength, kCFAllocatorNull);
 	
@@ -273,29 +261,14 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 
 -(void)takePicture:(id)sender
 {
-	/*
-	int currentRotation = [UIHardware deviceOrientation:YES];
-	NSString* str = [NSString stringWithFormat:@"%d", currentRotation];
-	[alertSheet setBodyText:str];
-	[alertSheet popupAlertAnimated:YES];
-	return;
-	*/			
-				//NSAutoreleasePool* pool = [NSAutoreleasePool new];
-				{
-					NSLog(@"Took a picture\n");					
-					[imageview _playShutterSound];
-					//[camController stopPreview];
-					//[imageview closeOpenIris];
-					[ camController capturePhoto];
-					//[imageview openIrisWithDidFinishSelector:nil];
-				}
-				//[pool release];
+	NSLog(@"Took a picture\n");					
+	[imageview _playShutterSound];
+	[ camController capturePhoto];
 }
 
 
 - (void)cameraControllerReadyStateChanged:(id)fp8
 {
-	//	[self setText:@"ready state changed"];
 }
 
 - (id) createButton:(NSString *)name
@@ -890,14 +863,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				{
 					[self getFrob];
 					break;
-					/*
-					NSLog(@"Opening flickr url\n");
-					NSURL *url;
-					url = [[NSURL alloc] initWithString:@"http://www.flickr.com/auth-72157601777151481"];
-					[self openURL:url];	
-					[url release];	
-					break;
-					*/
 				}
 					
             }
@@ -994,47 +959,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 	return 1;
 }
 
--(NSString*) getFullToken:(NSString*) mtoken
-{
-	NSString* method=@"flickr.auth.getFullToken";
-	
-	NSMutableDictionary *newparam=[[NSMutableDictionary alloc] init];
-	[newparam setObject:method forKey:@"method"];
-	[newparam setObject:@API_KEY forKey:@"api_key"];
-	[newparam setObject:mtoken forKey:@"mini_token"];
-	
-	NSString* param = [self signatureForCall:newparam];
-	NSLog(@"%@", param);
-	
-	NSString* rsp = [self flickrApiCall:param];		
-	NSLog(@"Response is (%@)\n", rsp);
-	if(rsp) 
-	{
-		int errcode = 0;
-        id errmsg = nil;
-        BOOL err = NO;
-		
-        NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:rsp options:NSXMLDocumentXMLKind error:&errmsg];
-		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
-		NSLog(@"return (%@)\n", [stat stringValue]);
-		
-		if([[stat stringValue] isEqualToString:@"ok"])
-		{
-			//minitoken = mtoken;
-		}
-		else
-		{
-			[alertSheet setBodyText:[stat stringValue]];
-			[alertSheet popupAlertAnimated:YES];
-		}
-		
-		[self getFlickrData:[xmlDoc rootElement]];
-		[xmlDoc release];
-	}
-	[newparam release];
-	return token;
-}
-
 -(void) sendCachedPics
 {
 	if(!token) return;
@@ -1069,22 +993,7 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 				NSLog(@"Sending cached pic with location (%@), orientation (%d), tags (%@) , privacy (%d)", plocation, [orientation intValue], ptags, [isprivate intValue]);
 				
 				NSData* jpeg = [NSData dataWithContentsOfFile:jpegFile];
-			
-				/*
-				[lock lock];
-				uploadQSize++;
-				[lock unlock];
-				
-				if(![_navBar containsView:status])
-				{
-					[_navBar addSubview:status];
-				}
-				
-				[status setText:[NSString stringWithFormat:@"Sending %d pics", uploadQSize]];
-				[progress startAnimation];
-				*/
-				
-				
+							
 				if ([self uploadWithData:jpeg withTags:ptags withOrientation:[orientation intValue] withLocation:plocation isPrivate:[isprivate boolValue]])
 				{
 					if(![fileManager removeFileAtPath:[NSString stringWithFormat:@"%@/%@", DCIM_PATH, settingfile] handler:nil]) 
@@ -1230,7 +1139,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		[newparam release];
 		
 		
-		//			NSData* uploadData = [self prepareUploadData:jpeg  withName:@"iflickr.jpg" withInfo:params withAuth:token];
 		NSString* filename = @"iflickr";
 		NSString *content_type = @"image/jpeg";
 		
@@ -1244,10 +1152,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		NSString *endmark = [NSString stringWithFormat: @"\r\n--%@--", POSTDataSeparator];
 		[cooked appendData:[endmark dataUsingEncoding:NSUTF8StringEncoding]];
 		
-		
-		
-		
-		//NSData* uploadData = [self prepareUploadData:jpeg  withName:@"iflickr.jpg" withInfo:params withAuth:token];
 		NSString* uploadDataStr =  [[NSString alloc] initWithData:cooked encoding:NSASCIIStringEncoding];
 		NSLog(@"Body is (%@)", uploadDataStr );
 		[theRequest setHTTPBody:cooked];
@@ -1318,7 +1222,6 @@ static void CRDrawSubImage (CGContextRef context, CGImageRef image, CGRect src, 
 		[theResponseString release];
 		[params release];
 	}
-	//[pool release];
 	return 1;
 }
 
@@ -1499,29 +1402,27 @@ void make_JPEG (char * data, long* length,
 	NSString *theResponseString = [[NSString alloc] initWithData:theResponseData encoding:NSASCIIStringEncoding] ;
 	NSLog(@"response  is (%@)", theResponseString);	
 	
-			int errcode = 0;
-        id errmsg = nil;
-        BOOL err = NO;
-		
-		NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:theResponseString options:NSXMLDocumentXMLKind error:&errmsg];
-		NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
-		NSLog(@"return (%@)\n", [stat stringValue]);
-		
-		if([[stat stringValue] isEqualToString:@"ok"])
-		{
-			NSArray *children = [[xmlDoc rootElement] children];
-			int i, count = [children count];
-			NSXMLElement *child = [children objectAtIndex:0];
-			NSLog(@"Name (%@) : Value (%@) \n", [child name], [child stringValue]);
-			location = [[NSString alloc]initWithString:[child stringValue]];
-		}
-		else
-		{
-			[alertSheet setBodyText:@"Could not get GSM location"];
-			[alertSheet popupAlertAnimated:YES];
-		}
-		
-	//return [theResponseString autorelease];
+	int errcode = 0;
+	id errmsg = nil;
+	BOOL err = NO;
+	
+	NSXMLDocument *xmlDoc = [[NSClassFromString(@"NSXMLDocument") alloc] initWithXMLString:theResponseString options:NSXMLDocumentXMLKind error:&errmsg];
+	NSXMLNode *stat =[[xmlDoc rootElement] attributeForName:@"stat"];
+	NSLog(@"return (%@)\n", [stat stringValue]);
+	
+	if([[stat stringValue] isEqualToString:@"ok"])
+	{
+		NSArray *children = [[xmlDoc rootElement] children];
+		int i, count = [children count];
+		NSXMLElement *child = [children objectAtIndex:0];
+		NSLog(@"Name (%@) : Value (%@) \n", [child name], [child stringValue]);
+		location = [[NSString alloc]initWithString:[child stringValue]];
+	}
+	else
+	{
+		[alertSheet setBodyText:@"Could not get GSM location"];
+		[alertSheet popupAlertAnimated:YES];
+	}
 	
 }
 
@@ -1567,80 +1468,6 @@ void make_JPEG (char * data, long* length,
        NSLog(@"Connected\n");
 
 }
-/*
--(NSMutableData*)internalPreparePOSTData:(NSDictionary*) parameters withAuth:(NSString*)auth withSign:(BOOL)sign withEnd:(BOOL)endmark withTags:(NSString*) currentTags
-{
-	NSLog(@"Inside  internalPreparePOSTData\n");
-	NSMutableData *data=[NSMutableData data];
-	NSMutableDictionary *newparam=[[NSMutableDictionary alloc] init];
-	
-	[newparam setObject:@API_KEY forKey:@"api_key"];
-	
-	if (auth) [newparam setObject:auth forKey:@"auth_token"];
-	
-	if (currentTags) [newparam setObject:currentTags forKey:@"tags"];
-	
-	if (mGeoTag && location) [newparam setObject:location forKey:@"description"];
-	
-	if(mIsPrivate) [newparam setObject:@"0" forKey:@"is_public"];
-	
-	if (sign) {
-		NSString *apisig=md5sig(newparam);
-		[newparam setObject:apisig forKey:@"api_sig"];
-		//[newparam setObject:@"test pic" forKey:@"photo"];
-	}
-	
-	NSArray *keys=[newparam allKeys];
-	unsigned i, c=[keys count];
-	
-	for (i=0; i<c; i++) {
-		NSString *k=[keys objectAtIndex:i];
-		NSString *v=[newparam objectForKey:k];
-		
-		NSString *addstr = [NSString stringWithFormat:
-						@"--%@\r\nContent-Disposition: form-data; name=\"%@\"\r\n\r\n%@\r\n",
-			POSTDataSeparator, k, v];
-		[data appendData:[addstr dataUsingEncoding:NSUTF8StringEncoding]];
-	}
-	
-	if (endmark) {
-		NSString *ending = [NSString stringWithFormat: @"--%@--", POSTDataSeparator];
-		[data appendData:[ending dataUsingEncoding:NSUTF8StringEncoding]];
-	}
-	[newparam release];
-	return data;
-}
-*/
-/*
--(NSData*) prepareUploadData:(NSData*) data  withName:(NSString*) filename withInfo:(NSDictionary*) info  withAuth:(NSString*) auth withTags:ptags withLocation:plocation
-{
-	// TO-DO: Quote processing of filename
-	NSLog(@"Inside  prepareUploadData\n");
-	NSMutableData *cooked=[self internalPreparePOSTData:info withAuth:auth withSign:YES withEnd:NO withTags:ptags];
-	
-	NSString *lastpart = [filename lastPathComponent];
-	NSString *extension = [filename pathExtension];
-	NSString *content_type = @"image/jpeg";
-	
-	if ([extension isEqualToString:@"png"]) {
-		content_type = @"image/png";
-	}
-	else if ([extension isEqualToString:@"gif"]) {
-		content_type = @"image/gif";
-	}
-	
-	NSString *filename_str = [NSString stringWithFormat:
-						  @"--%@\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"%@\"\r\nContent-Type: %@\r\n\r\n",
-		POSTDataSeparator, lastpart, content_type];
-	
-	[cooked appendData:[filename_str dataUsingEncoding:NSUTF8StringEncoding]];
-	[cooked appendData:data];    
-	NSLog(@"Cooked data\n");  
-	NSString *endmark = [NSString stringWithFormat: @"\r\n--%@--", POSTDataSeparator];
-	[cooked appendData:[endmark dataUsingEncoding:NSUTF8StringEncoding]];
-	return cooked;
-}
-*/
 
 -(NSString*) flickrApiCall:(NSString*) params
 {
